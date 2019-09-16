@@ -1,0 +1,40 @@
+#!/usr/bin/env php
+<?php
+
+define("REPORANGLER_USERAGENT", "reporangler-cli");
+define("REPORANGLER_BASEURL", "http://{{SERVICE}}.reporangler.develop");
+
+print "RepoRangler: CLI\n";
+
+/**
+ * @param string $method
+ * @param string $url
+ * @param array $data
+ * @param array $headers
+ * @return array|mixed
+ * @throws Exception
+ */
+function makeRequest(string $method, string $url, array $data = [], array $headers = [])
+{
+    $curl = curl_init();
+
+    $headers[] = 'Content-Type: application/json';
+
+    curl_setopt($curl, CURLOPT_URL, $url);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($curl, CURLOPT_USERAGENT, REPORANGLER_USERAGENT);
+    curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
+
+    if(!empty($data)){
+        curl_setopt($curl, CURLOPT_POST, true);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
+    }
+
+    $result = curl_exec($curl);
+
+    if($result === false){
+        throw new Exception(curl_error($curl));
+    }
+
+    return json_decode($result, true);
+}
