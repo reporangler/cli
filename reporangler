@@ -1,40 +1,279 @@
 #!/usr/bin/env php
 <?php
 
-define("REPORANGLER_USERAGENT", "reporangler-cli");
-define("REPORANGLER_BASEURL", "http://{{SERVICE}}.reporangler.develop");
+function main($argv, $argc){
+    print("RepoRangler: CLI\n");
 
-print "RepoRangler: CLI\n";
+    $argList = array_slice($argv,1);
 
-/**
- * @param string $method
- * @param string $url
- * @param array $data
- * @param array $headers
- * @return array|mixed
- * @throws Exception
- */
-function makeRequest(string $method, string $url, array $data = [], array $headers = [])
-{
-    $curl = curl_init();
+    foreach($argList as $arg){
+        list($arg, $value) = explode("=",$arg) + [null, null];
+        $method = RepoRangler::computeMethodName($arg);
 
-    $headers[] = 'Content-Type: application/json';
+        if(!empty($arg)){
+            call_user_func_array($method, [$arg, $value, $argList]);
+        }
+    }
+}
 
-    curl_setopt($curl, CURLOPT_URL, $url);
-    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($curl, CURLOPT_USERAGENT, REPORANGLER_USERAGENT);
-    curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
+try{
+    Config::read();
 
-    if(!empty($data)){
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
+    main($argv,$argc);
+}catch(RepoRanglerCurlException $e){
+    print("Curl has failed: ".$e->getMessage()."\n");
+}catch(RepoRanglerValidationException $e){
+    print($e->getMessage()."\n");
+}catch(RepoRanglerException $e){
+    print($e->getMessage()."\n");
+}catch(Exception $e){
+    print($e->getMessage()."\n");
+}finally{
+    Config::write();
+}
+
+class RepoRangler{
+    static public function computeMethodName($arg)
+    {
+        $arg = trim($arg,'-');
+        $arg = str_replace('-', ' ', $arg);
+        $arg = ucwords($arg);
+        $arg = str_replace(' ', '', $arg);
+        $arg = lcfirst($arg);
+
+        return method_exists("RepoRangler", $arg) ? "RepoRangler::$arg" : null;
     }
 
-    $result = curl_exec($curl);
+    static public function login($arg, $value, $argList)
+    {
+        $username = readline('Enter Username: ');
+        $password = readline('Enter Password: ');
 
-    if($result === false){
-        throw new Exception(curl_error($curl));
+        $auth = Config::getEndpoint('auth');
+        $headers = Request::getLoginHeaders($username, $password);
+        $result = Request::get("$auth/login/api", $headers);
+
+        if(array_key_exists('token', $result)){
+            Config::setToken($result['token']);
+            print("Login was successful, token: {$result['token']}\n");
+        }else{
+            print("Login has failed\n");
+        }
     }
 
-    return json_decode($result, true);
+    static public function createUser($arg, $value, $argList)
+    {
+        $username = readline('Enter Username: ');
+        $email = readline('Enter Email: ');
+        $password = readline('Enter Password: ');
+
+        $auth = Config::getEndpoint('auth');
+        $headers = Request::getTokenHeaders();
+
+        $result = Request::post("$auth/user", [
+            'username' => $username,
+            'email' => $email,
+            'password' => $password,
+        ], $headers);
+
+        print("User was created successfully\n");
+    }
+
+    static public function listUser($arg, $value, $argList)
+    {
+        $auth = Config::getEndpoint('auth');
+        $headers = Request::getTokenHeaders();
+
+        $result = Request::get("$auth/user", $headers);
+
+        print("User List: \n");
+        foreach($result['data'] as $user){
+            print("  - {$user['username']}\n");
+        }
+    }
+
+    static public function deleteUser($arg, $username, $argList)
+    {
+        if(empty($username) || !is_string($username)){
+            die("The username must be a non-empty string");
+        }
+
+        $auth = Config::getEndpoint('auth');
+        $headers = Request::getTokenHeaders();
+
+        $request = Request::get("$auth/user/username/$username", $headers);
+
+        Request::delete("$auth/user/{$request['id']}", $headers);
+
+        print("The user was deleted successfully\n");
+    }
+}
+
+class Config{
+    const file = __DIR__ . '/.reporangler.config';
+    const user_agent = 'reporangler-cli';
+
+    const defaults = [
+        'endpoints' => [
+            'auth' => 'http://auth.reporangler.develop',
+            'php' => 'http://php.reporangler.develop',
+            'npm' => 'http://npm.reporangler.develop',
+        ]
+    ];
+
+    static public $state = [];
+
+    static public function read(){
+        self::$state = file_exists(self::file)
+            ? json_decode(file_get_contents(self::file), true)
+            : self::defaults;
+    }
+
+    static public function write(){
+        return file_put_contents(self::file, json_encode(self::$state, JSON_PRETTY_PRINT));
+    }
+
+    static public function getEndpoint($name)
+    {
+        if(empty(self::$state)) {
+            die("State: Was empty");
+        }
+
+        if(!array_key_exists('endpoints', self::$state)) {
+            die("State: Endpoints are not configured");
+        }
+
+        if(!array_key_exists($name, self::$state['endpoints'])) {
+            die("State: Endpoint '$name' does not exist");
+        }
+
+        return self::$state['endpoints'][$name];
+    }
+
+    static public function setToken($token)
+    {
+        self::$state['login_token'] = $token;
+    }
+
+    static public function getToken()
+    {
+        return array_key_exists('login_token', self::$state)
+            ? self::$state['login_token']
+            : null;
+    }
+}
+
+class Request{
+    static public $statusCode = 500;
+
+    private function exec($method, $url, $data, $headers)
+    {
+        $curl = curl_init();
+
+        $headers[] = 'Content-Type: application/json';
+
+        // Coerce the method to a set of allowed types
+        $method = in_array($method, ['GET', 'POST', 'PUT', 'DELETE']) ? $method : 'GET';
+
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_USERAGENT, Config::user_agent);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
+
+        if(!empty($data)){
+            curl_setopt($curl, CURLOPT_POST, true);
+            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
+        }
+
+        Request::$statusCode = 500;
+
+        $result = curl_exec($curl);
+
+        $statusCode = Request::$statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+
+        if(!strlen($result)) throw new Exception('The api request returned an empty response');
+
+        $json = json_decode($result, true);
+
+        switch(Request::$statusCode){
+            case 200:
+                return $json;
+                break;
+
+            case 404:
+                throw new RepoRanglerException("The resource was not found ($statusCode)", $json);
+                break;
+
+            case 422:
+                if($json['exception'] === 'Illuminate\Validation\ValidationException'){
+                    throw new RepoRanglerValidationException($json);
+                }
+                break;
+        }
+
+        throw new RepoRanglerException("There was a generic unknown error ($statusCode)", $json);
+    }
+
+    public function get($url, $headers=[])
+    {
+        return self::exec('GET', $url, null, $headers);
+    }
+
+    public function post($url, $data, $headers=[])
+    {
+        return self::exec('POST', $url, $data, $headers);
+    }
+
+    public function put($url, $data, $headers=[])
+    {
+        return self::exec('PUT', $url, $data, $headers);
+    }
+
+    public function delete($url, $headers=[])
+    {
+        return self::exec('DELETE', $url, null, $headers);
+    }
+
+    public function getLoginHeaders($username, $password)
+    {
+        return [
+            "reporangler-login-type: database",
+            "reporangler-login-username: $username",
+            "reporangler-login-password: $password",
+        ];
+    }
+
+    public function getTokenHeaders()
+    {
+        $token = Config::getToken();
+
+        if(empty($token)){
+            die("Token was empty, you must login first");
+        }
+
+        return ["Authorization: Bearer {$token}"];
+    }
+}
+
+class RepoRanglerException extends \Exception{
+    public $data;
+
+    public function __construct($message = null, $data = [])
+    {
+        $this->data = $data;
+
+        parent::__construct($message);
+    }
+}
+class RepoRanglerCurlException extends RepoRanglerException{}
+
+class RepoRanglerValidationException extends RepoRanglerException{
+    public function __construct($data = [])
+    {
+        $keys = implode(', ', array_keys($data['validation']));
+        $message = "Validation has failed because the following fields were not valid: $keys";
+
+        parent::__construct($message, $data['validation']);
+    }
 }
