@@ -10,8 +10,10 @@ function main($argv, $argc){
         list($arg, $value) = explode("=",$arg) + [null, null];
         $method = RepoRangler::computeMethodName($arg);
 
-        if(!empty($arg)){
+        if(!empty($method)){
             call_user_func_array($method, [$arg, $value, $argList]);
+        }else{
+            print("No command was found to process\n");
         }
     }
 }
@@ -26,6 +28,7 @@ try{
     print($e->getMessage()."\n");
 }catch(RepoRanglerException $e){
     print($e->getMessage()."\n");
+    var_dump($e->data);
 }catch(Exception $e){
     print($e->getMessage()."\n");
 }finally{
@@ -51,13 +54,26 @@ class RepoRangler{
 
         $auth = Config::getEndpoint('auth');
         $headers = Request::getLoginHeaders($username, $password);
-        $result = Request::get("$auth/login/api", $headers);
+        $response = Request::get("$auth/login/api", $headers);
 
-        if(array_key_exists('token', $result)){
-            Config::setToken($result['token']);
-            print("Login was successful, token: {$result['token']}\n");
+        if(array_key_exists('token', $response)){
+            Config::setToken($response['token']);
+            print("Login was successful, token: {$response['token']}\n");
         }else{
             print("Login has failed\n");
+        }
+    }
+
+    static public function listUser($arg, $value, $argList)
+    {
+        $auth = Config::getEndpoint('auth');
+        $headers = Request::getTokenHeaders();
+
+        $response = Request::get("$auth/user", $headers);
+
+        print("User List: \n");
+        foreach($response['data'] as $user){
+            print("  - {$user['username']}\n");
         }
     }
 
@@ -70,26 +86,13 @@ class RepoRangler{
         $auth = Config::getEndpoint('auth');
         $headers = Request::getTokenHeaders();
 
-        $result = Request::post("$auth/user", [
+        $response = Request::post("$auth/user", [
             'username' => $username,
             'email' => $email,
             'password' => $password,
         ], $headers);
 
-        print("User was created successfully\n");
-    }
-
-    static public function listUser($arg, $value, $argList)
-    {
-        $auth = Config::getEndpoint('auth');
-        $headers = Request::getTokenHeaders();
-
-        $result = Request::get("$auth/user", $headers);
-
-        print("User List: \n");
-        foreach($result['data'] as $user){
-            print("  - {$user['username']}\n");
-        }
+        print("The User was created successfully\n");
     }
 
     static public function deleteUser($arg, $username, $argList)
@@ -101,11 +104,56 @@ class RepoRangler{
         $auth = Config::getEndpoint('auth');
         $headers = Request::getTokenHeaders();
 
-        $request = Request::get("$auth/user/username/$username", $headers);
+        $response = Request::get("$auth/user/username/$username", $headers);
 
-        Request::delete("$auth/user/{$request['id']}", $headers);
+        Request::delete("$auth/user/{$response['id']}", $headers);
 
         print("The user was deleted successfully\n");
+    }
+
+    static public function listPackageGroups($arg, $value, $argList)
+    {
+        $auth = Config::getEndpoint('auth');
+        $headers = Request::getTokenHeaders();
+
+        $response = Request::get("$auth/package-group", $headers);
+
+        print("Package Groups: \n");
+        foreach($response['data'] as $packageGroup){
+            print("  - {$packageGroup['name']}\n");
+        }
+    }
+
+    static public function createPackageGroup($arg, $packageGroup, $argList)
+    {
+        if(empty($packageGroup) || !is_string($packageGroup)){
+            die("The package group name must be a non-empty string");
+        }
+
+        $auth = Config::getEndpoint('auth');
+        $headers = Request::getTokenHeaders();
+
+        $response = Request::post("$auth/package-group", [
+            'name' => $packageGroup
+        ], $headers);
+
+        print("The Package group was created successfully\n");
+    }
+
+    static public function deletePackageGroup($arg, $packageGroup, $argList)
+    {
+        if(empty($packageGroup) || !is_string($packageGroup)){
+            die("The package group name must be a non-empty string");
+        }
+
+        $auth = Config::getEndpoint('auth');
+        $headers = Request::getTokenHeaders();
+
+        $response = Request::get("$auth/package-group/name/$packageGroup", $headers);
+
+        Request::delete("$auth/package-group/{$response['id']}", $headers);
+
+        print("The Package group was deleted successfully\n");
     }
 }
 
@@ -206,10 +254,15 @@ class Request{
                 break;
 
             case 422:
-                if($json['exception'] === 'Illuminate\Validation\ValidationException'){
-                    throw new RepoRanglerValidationException($json);
+                switch($json['exception']){
+                    case 'Illuminate\Validation\ValidationException':
+                        throw new RepoRanglerValidationException($json);
+                        break;
+
+                    case 'Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException':
+                        throw new RepoRanglerAlreadyExistsException($json['message']);
+                        break;
                 }
-                break;
         }
 
         throw new RepoRanglerException("There was a generic unknown error ($statusCode)", $json);
@@ -267,6 +320,7 @@ class RepoRanglerException extends \Exception{
     }
 }
 class RepoRanglerCurlException extends RepoRanglerException{}
+class RepoRanglerAlreadyExistsException extends RepoRanglerException{}
 
 class RepoRanglerValidationException extends RepoRanglerException{
     public function __construct($data = [])
