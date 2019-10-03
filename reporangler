@@ -111,7 +111,7 @@ class RepoRangler{
         print("The user was deleted successfully\n");
     }
 
-    static public function listPackageGroups($arg, $value, $argList)
+    static public function listPackageGroup($arg, $value, $argList)
     {
         $auth = Config::getEndpoint('auth');
         $headers = Request::getTokenHeaders();
