@@ -38,13 +38,19 @@ try{
 class RepoRangler{
     static public function computeMethodName($arg)
     {
-        $arg = trim($arg,'-');
-        $arg = str_replace('-', ' ', $arg);
-        $arg = ucwords($arg);
-        $arg = str_replace(' ', '', $arg);
-        $arg = lcfirst($arg);
+		$command = trim($arg,'-');
+		$command = str_replace('-', ' ', $command);
+		$command = ucwords($command);
+		$command = str_replace(' ', '', $command);
+		$command = lcfirst($command);
 
-        return method_exists("RepoRangler", $arg) ? "RepoRangler::$arg" : null;
+        if(method_exists("RepoRangler", $command)) return "RepoRangler::$command";
+
+		$altArg = rtrim($arg, 's');
+		if($altArg === $arg) return null;
+
+		print("Command '$arg' did not exist, trying '$altArg'\n");
+        return self::computeMethodName($altArg);
     }
 
     static public function login($arg, $value, $argList)
