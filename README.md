@@ -23,6 +23,7 @@ corrected to `list-package-group`. The commands are singular unless explicitly s
     - Example: `delete-user=username` 
 - user-info
     - This command will show the user info
+    - TODO: This command should not show tokens that you do not own, even to admin users
 
 #### Package Group Commands
 - list-package-group
