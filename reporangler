@@ -52,6 +52,7 @@ class RepoRangler{
 
         if(array_key_exists('token', $response)){
             Config::setToken($response['token']);
+            Config::setUserId($response['id']);
             print("Login was successful, token: {$response['token']}\n");
         }else{
             print("Login has failed\n");
@@ -150,62 +151,209 @@ class RepoRangler{
         print("The Package group was deleted successfully\n");
     }
 
+    static public function addAccessToken($arg, $value, $argList)
+    {
+        $fields = array_fill_keys(['user_id', 'type', 'token'], null);
+
+		foreach($argList as $arg) {
+			list($arg, $value) = Command::extractArg($arg);
+
+			switch ($arg) {
+				case 'type':
+					$fields['type'] = $value;
+					break;
+
+                case 'token':
+                    $fields['token'] = $value;
+                    break;
+
+                case 'user':
+					// do nothing yet, but should lookup a user by username and acquire the user_id
+                    break;
+			}
+		}
+
+		if($fields['user_id'] === null){
+		    $fields['user_id'] = Config::getUserId();
+        }
+
+		if(in_array(null, $fields)){
+			throw new CommandFieldEmptyException();
+		}
+
+		$endpoint = Config::getEndpoint('auth');
+		$headers = Request::getTokenHeaders();
+
+		$response = Request::post("$endpoint/access-token/{$fields['user_id']}", [
+            'user_id' => $fields['user_id'],
+            'type' => $fields['type'],
+            'token' => $fields['token'],
+		], $headers);
+
+		if(empty($response)){
+		    die("An unexpected empty response was returned\n");
+        }
+
+		if(!array_key_exists('type', $response) || $response['type'] !== $fields['type']){
+		    die("The type of this response was not found, or not the requested type\n");
+        }
+
+		if(!array_key_exists('token', $response) || $response['token'] !== $fields['token']){
+		    die("The token of this response was not found, or not the requested text\n");
+        }
+
+		print("Token '{$response['type']}' with key '{$response['token']}' was successfully created\n");
+    }
+
+	static public function listAccessToken($arg, $value, $argList)
+	{
+		$fields = array_fill_keys(['user_id'], null);
+
+		foreach ($argList as $arg) {
+			list($arg, $value) = Command::extractArg($arg);
+
+			switch ($arg) {
+				case 'user':
+					// do nothing yet, but should lookup a user by username and acquire the user_id
+					break;
+			}
+		}
+
+		if ($fields['user_id'] === null) {
+			$fields['user_id'] = Config::getUserId();
+		}
+
+		if (in_array(null, $fields)) {
+			throw new CommandFieldEmptyException();
+		}
+
+		$endpoint = Config::getEndpoint('auth');
+		$headers = Request::getTokenHeaders();
+
+		$response = Request::get("$endpoint/access-token/{$fields['user_id']}", $headers);
+
+		if(empty($response)){
+			print("There were no tokens by this user to delete\n");
+			return;
+		}
+
+		print("The following tokens were found:\n");
+		foreach($response as $index => $token){
+			print("  ".($index+1).": {$token['type']}\n");
+		}
+	}
+
+    static public function removeAccessToken($arg, $value, $argList)
+    {
+        $fields = array_fill_keys(['user_id', 'type'], null);
+
+		foreach($argList as $arg) {
+			list($arg, $value) = Command::extractArg($arg);
+
+			switch ($arg) {
+				case 'type':
+					$fields['type'] = $value;
+					break;
+
+				case 'user':
+					// do nothing yet, but should lookup a user by username and acquire the user_id
+					break;
+			}
+		}
+
+		if($fields['user_id'] === null){
+			$fields['user_id'] = Config::getUserId();
+		}
+
+        if(in_array(null, $fields)){
+			throw new CommandFieldEmptyException();
+		}
+
+		$endpoint = Config::getEndpoint('auth');
+		$headers = Request::getTokenHeaders();
+
+		$response = Request::get("$endpoint/access-token/{$fields['user_id']}", $headers);
+
+		if(empty($response)){
+		    print("There were no tokens by this user to delete\n");
+		    return;
+        }
+
+		print("Please choose a token to delete:\n");
+		foreach($response as $index => $token){
+		    print("  ".($index+1).": {$token['type']}\n");
+        }
+		$id = readline("Enter id: ");
+		$id = intval($id);
+		if($id < 1) die("The Id given was not a positive integer");
+
+		$response = Request::delete("$endpoint/access-token/{$fields['user_id']}/{$response[$id-1]['id']}", $headers);
+
+		if(array_key_exists('deleted', $response) && count($response['deleted']) === 1){
+		    $deleted = current($response['deleted']);
+		    print("Token '{$deleted['type']}' with key '{$deleted['token']}' was successfully deleted\n");
+        }else{
+		    print("Something went wrong, but the expected response was not found\n");
+        }
+	}
+
     static public function publish($arg, $value, $argList)
     {
-        $repositoryType = null;
-		$scan = null;
-        $packageGroup = null;
-        $url = null;
+        $fields = array_fill_keys(['repository_type','scan','package_group','url'], null);
 
         foreach($argList as $arg){
 			list($arg, $value) = Command::extractArg($arg);
 
 			switch($arg){
                 case 'type':
-					$repositoryType = $value;
+					$fields['repository_type'] = $value;
 					break;
 
                 case 'group':
-					$packageGroup = $value;
+					$fields['package_group'] = $value;
                     break;
 
                 case 'url':
-                    $url = $value;
+                    $fields['url'] = $value;
                     break;
 
                 case 'scan':
-                    $scan = $value;
+                    $fields['scan'] = $value;
                     break;
             }
         }
 
-        if($scan === null){
+        if($fields['scan'] === null){
 			switch(true){
-				case strpos($url, 'github') !== false:
-					$scan = 'github';
+				case strpos($fields['url'], 'github') !== false:
+					$fields['scan'] = 'github';
 					break;
 
-				case strpos($url, 'gitlab') !== false:
-					$scan = 'gitlab';
+				case strpos($fields['url'], 'gitlab') !== false:
+					$fields['scan'] = 'gitlab';
 					break;
 
                 default:
-                    $scan = 'vcs';
+					$fields['scan'] = 'vcs';
                     break;
 			}
         }
 
-		$endpoint = Config::getEndpoint($repositoryType);
+        if(in_array(null, $fields)){
+            throw new CommandFieldEmptyException();
+        }
+
+		$endpoint = Config::getEndpoint($fields['repository_type']);
 		$headers = Request::getTokenHeaders();
 
 		$response = Request::post($endpoint, [
-            'url' => $url,
-            'type' => $scan,
-            'package_group' => $packageGroup,
+            'url' => $fields['url'],
+            'type' => $fields['scan'],
+            'package_group' => $fields['package_group'],
         ], $headers);
 
 		foreach($response as $package => $version){
-			print("Published Package: '$package' from '$url'\n");
+			print("Published Package: '$package' from '{$fields['url']}'\n");
 			foreach(array_keys($version) as $version){
 			    print("  - $version\n");
             }
@@ -264,6 +412,16 @@ class Config{
         return array_key_exists('login_token', self::$state)
             ? self::$state['login_token']
             : null;
+    }
+
+    static public function setUserId($userId)
+    {
+        self::$state['user_id'] = $userId;
+    }
+
+    static public function getUserId()
+    {
+        return self::$state['user_id'];
     }
 }
 
@@ -414,3 +572,5 @@ class RepoRanglerValidationException extends RepoRanglerException{
         parent::__construct($message, $data['validation']);
     }
 }
+
+class CommandFieldEmptyException extends \Exception{}
