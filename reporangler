@@ -106,6 +106,51 @@ class RepoRangler{
         print("The user was deleted successfully\n");
     }
 
+    static public function userInfo($arg, $username, $argList)
+    {
+		$endpoint = Config::getEndpoint('auth');
+		$headers = Request::getTokenHeaders();
+
+		if(!empty($username) && is_string($username)){
+		    try{
+				$response = Request::get("$endpoint/user/username/$username", $headers);
+            }catch(RepoRanglerException $e){
+				die("The user with the username '$username' was not found\n");
+            }
+        }else{
+		    $userId = Config::getUserId();
+
+		    $response = Request::get("$endpoint/user/id/$userId", $headers);
+        }
+
+		$is = [
+            'admin' => $response['is_admin_user'] ? 'yes' : 'no',
+            'rest' => $response['is_rest_user'] ? 'yes' : 'no'
+        ];
+
+		print("The user '{$response['username']}' was found:\n");
+		print("  Username: {$response['username']}\n");
+		print("  Email: {$response['email']}\n");
+		print("  Type: ADMIN[{$is['admin']}], REST[{$is['rest']}]\n");
+		print("  Created At: {$response['created_at']}\n");
+		print("  Updated At: {$response['updated_at']}\n");
+		print("  Package Groups: \n");
+		foreach($response['package_groups'] as $name => $access){
+		    $access = $access === "PACKAGE_GROUP_ADMIN" ? 'admin' : 'member';
+		    print("    $name: $access\n");
+        }
+		print("  Access Tokens: (TODO: hide if not your own tokens)\n");
+		foreach($response['access_tokens'] as $token){
+            print("    {$token['type']}: {$token['token']}\n");
+        }
+		print("  Raw Capability List: (TODO: We should remove this eventually)\n");
+		foreach($response['capability'] as $cap){
+			$constraint = $cap['constraint'] !== null ? json_encode($cap['constraint']) : "No Constraints given";
+
+		    print("    {$cap['name']}: $constraint\n");
+        }
+    }
+
     static public function listPackageGroup($arg, $value, $argList)
     {
 		$endpoint = Config::getEndpoint('auth');
