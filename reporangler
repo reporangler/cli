@@ -6,15 +6,20 @@ function main($argv, $argc){
 
     $argList = array_slice($argv,1);
 
+    $unknownCommand = true;
+
     foreach($argList as $arg){
         list($arg, $value) = explode("=",$arg) + [null, null];
-        $method = RepoRangler::computeMethodName($arg);
+        $method = Command::computeMethodName($arg);
 
         if(!empty($method)){
+            $unknownCommand = false;
             call_user_func_array($method, [$arg, $value, $argList]);
-        }else{
-            print("No command was found to process\n");
         }
+    }
+
+    if($unknownCommand){
+        print("No command was found to process\n");
     }
 }
 
@@ -36,31 +41,14 @@ try{
 }
 
 class RepoRangler{
-    static public function computeMethodName($arg)
-    {
-		$command = trim($arg,'-');
-		$command = str_replace('-', ' ', $command);
-		$command = ucwords($command);
-		$command = str_replace(' ', '', $command);
-		$command = lcfirst($command);
-
-        if(method_exists("RepoRangler", $command)) return "RepoRangler::$command";
-
-		$altArg = rtrim($arg, 's');
-		if($altArg === $arg) return null;
-
-		print("Command '$arg' did not exist, trying '$altArg'\n");
-        return self::computeMethodName($altArg);
-    }
-
     static public function login($arg, $value, $argList)
     {
         $username = readline('Enter Username: ');
         $password = readline('Enter Password: ');
 
-        $auth = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('auth');
         $headers = Request::getLoginHeaders($username, $password);
-        $response = Request::get("$auth/login/api", $headers);
+        $response = Request::get("$endpoint/login/api", $headers);
 
         if(array_key_exists('token', $response)){
             Config::setToken($response['token']);
@@ -72,10 +60,10 @@ class RepoRangler{
 
     static public function listUser($arg, $value, $argList)
     {
-        $auth = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('auth');
         $headers = Request::getTokenHeaders();
 
-        $response = Request::get("$auth/user", $headers);
+        $response = Request::get("$endpoint/user", $headers);
 
         print("User List: \n");
         foreach($response['data'] as $user){
@@ -89,10 +77,10 @@ class RepoRangler{
         $email = readline('Enter Email: ');
         $password = readline('Enter Password: ');
 
-        $auth = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('auth');
         $headers = Request::getTokenHeaders();
 
-        $response = Request::post("$auth/user", [
+        $response = Request::post("$endpoint/user", [
             'username' => $username,
             'email' => $email,
             'password' => $password,
@@ -107,22 +95,22 @@ class RepoRangler{
             die("The username must be a non-empty string");
         }
 
-        $auth = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('auth');
         $headers = Request::getTokenHeaders();
 
-        $response = Request::get("$auth/user/username/$username", $headers);
+        $response = Request::get("$endpoint/user/username/$username", $headers);
 
-        Request::delete("$auth/user/{$response['id']}", $headers);
+        Request::delete("$endpoint/user/{$response['id']}", $headers);
 
         print("The user was deleted successfully\n");
     }
 
     static public function listPackageGroup($arg, $value, $argList)
     {
-        $auth = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('auth');
         $headers = Request::getTokenHeaders();
 
-        $response = Request::get("$auth/package-group", $headers);
+        $response = Request::get("$endpoint/package-group", $headers);
 
         print("Package Groups: \n");
         foreach($response['data'] as $packageGroup){
@@ -136,10 +124,10 @@ class RepoRangler{
             die("The package group name must be a non-empty string");
         }
 
-        $auth = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('auth');
         $headers = Request::getTokenHeaders();
 
-        $response = Request::post("$auth/package-group", [
+        $response = Request::post("$endpoint/package-group", [
             'name' => $packageGroup
         ], $headers);
 
@@ -152,15 +140,77 @@ class RepoRangler{
             die("The package group name must be a non-empty string");
         }
 
-        $auth = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('auth');
         $headers = Request::getTokenHeaders();
 
-        $response = Request::get("$auth/package-group/name/$packageGroup", $headers);
+        $response = Request::get("$endpoint/package-group/name/$packageGroup", $headers);
 
-        Request::delete("$auth/package-group/{$response['id']}", $headers);
+        Request::delete("$endpoint/package-group/{$response['id']}", $headers);
 
         print("The Package group was deleted successfully\n");
     }
+
+    static public function publish($arg, $value, $argList)
+    {
+        $repositoryType = null;
+		$scan = null;
+        $packageGroup = null;
+        $url = null;
+
+        foreach($argList as $arg){
+			list($arg, $value) = Command::extractArg($arg);
+
+			switch($arg){
+                case 'type':
+					$repositoryType = $value;
+					break;
+
+                case 'group':
+					$packageGroup = $value;
+                    break;
+
+                case 'url':
+                    $url = $value;
+                    break;
+
+                case 'scan':
+                    $scan = $value;
+                    break;
+            }
+        }
+
+        if($scan === null){
+			switch(true){
+				case strpos($url, 'github') !== false:
+					$scan = 'github';
+					break;
+
+				case strpos($url, 'gitlab') !== false:
+					$scan = 'gitlab';
+					break;
+
+                default:
+                    $scan = 'vcs';
+                    break;
+			}
+        }
+
+		$endpoint = Config::getEndpoint($repositoryType);
+		$headers = Request::getTokenHeaders();
+
+		$response = Request::post($endpoint, [
+            'url' => $url,
+            'type' => $scan,
+            'package_group' => $packageGroup,
+        ], $headers);
+
+		foreach($response as $package => $version){
+			print("Published Package: '$package' from '$url'\n");
+			foreach(array_keys($version) as $version){
+			    print("  - $version\n");
+            }
+        }
+	}
 }
 
 class Config{
@@ -312,6 +362,33 @@ class Request{
         }
 
         return ["Authorization: Bearer {$token}"];
+    }
+}
+
+class Command
+{
+	static public function computeMethodName($arg)
+	{
+		$command = trim($arg,'-');
+		$command = str_replace('-', ' ', $command);
+		$command = ucwords($command);
+		$command = str_replace(' ', '', $command);
+		$command = lcfirst($command);
+
+		if(method_exists("RepoRangler", $command)) return "RepoRangler::$command";
+
+		$altArg = rtrim($arg, 's');
+		if($altArg === $arg) return null;
+
+		print("Command '$arg' did not exist, trying '$altArg'\n");
+		return self::computeMethodName($altArg);
+	}
+
+	static public function extractArg($arg)
+    {
+		list($arg, $value) = explode("=",$arg) + [null, null];
+
+		return [trim($arg,'-'), $value];
     }
 }
 
