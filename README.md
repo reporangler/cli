@@ -62,6 +62,23 @@ corrected to `list-package-group`. The commands are singular unless explicitly s
         be useful to the repository service, it's only provided as part of the payload and if it's useful then it's available
     - Example: `publish --type=php --group=public --url=https://github.com/reporangler/lib-reporangler`
 
+#### Repository Commands
+- list-repository
+    - This will list all the supported repositories
+- create-repository
+    - This will create a repository
+    - It requires to be equal to the name of the repository to delete
+    - Example: create-repository=npm
+- update-repository
+    - This will update an existing repository
+    - It requires to be equal to the name of the repository to delete
+    - It should have a parameter called --name which will be what the repository name will become
+    - Example: update-repository=npm --name=roger
+- delete-repository
+    - This will delete an existing repository
+    - It requires to be equal to the name of the repository to delete
+    - Example: delete-repository=npm
+
 #### Missing Commands (but that exist in the Rest Api)
 - Assign user into package group
 - Remove user from package group
