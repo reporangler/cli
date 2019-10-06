@@ -361,8 +361,9 @@ class RepoRangler{
             print("  --(repository|repo)=php: The name of the repository that this package will be published into\n");
             print("  --group=public: The name of the package group that this package will be associated with\n");
             print("  --url=https://...: The url of the project from where to obtain packages from\n");
-            print("  --scanner=(".implode("|",$scannerTypes)."): The type of repository scanner to use, must be one of the listed types")
-            print("\nNOTE: It's true that not all packages come from a VCS, but at the moment, it's the only supported type\n");
+            print("  --scanner=(".implode("|",$scannerTypes)."): The type of repository scanner to use, must be one of the listed types\n\n");
+            print("NOTE: It's true that not all packages come from a VCS, but at the moment, it's the only supported type\n");
+            print("NOTE: The scanner will default to using the type coming from the url if you do not specify any, if the url is not github or gitlab, vcs will be used\n");
             die();
         }
 
