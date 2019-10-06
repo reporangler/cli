@@ -38,8 +38,12 @@ try{
 }catch(RepoRanglerValidationException $e){
     print($e->getMessage()."\n");
 }catch(RepoRanglerException $e){
-    print($e->getMessage()."\n");
-    var_dump($e->data);
+    if(strpos($e->data['message'], 'duplicate key') !== false){
+        print("The information you provided already exists or was not unique enough\n");
+    }else{
+        print($e->getMessage()."\n");
+        var_dump($e->data);
+    }
 }catch(Exception $e){
     print($e->getMessage()."\n");
 }finally{
@@ -405,6 +409,63 @@ class RepoRangler{
             }
         }
 	}
+
+	public function listRepository($arg, $value, $argList)
+    {
+        $endpoint = Config::getEndpoint('metadata');
+        $response = Request::get("$endpoint/repository");
+
+        print("List of Supported Repositories: \n");
+        foreach($response as $repo){
+            print("  - ${repo['name']}\n");
+        }
+    }
+
+    public function createRepository($arg, $repo, $argList)
+    {
+        if(empty($repo) || !is_string($repo)){
+            die("The repository name must be a non-empty string");
+        }
+
+        $endpoint = Config::getEndpoint('metadata');
+
+        $response = Request::post("$endpoint/repository",['name' => $repo]);
+
+        print("Repository '{$response['name']}' was successfully created\n");
+    }
+
+    public function updateRepository($arg, $repo, $argList)
+    {
+        if(empty($repo) || !is_string($repo)){
+            die("The repository name must be a non-empty string");
+        }
+
+        $endpoint = Config::getEndpoint('metadata');
+
+        $repo = Request::get("$endpoint/repository/$repo");
+
+        $name = Command::getArg($argList, 'name');
+        if(empty($name)) $name = readline("Enter a new name for this repository: ");
+
+        $response = Request::put("$endpoint/repository/${repo['id']}",['name' => $name]);
+
+        print("Repository '{$repo['name']}' was renamed to '{$response['name']}' successfully\n");
+    }
+
+    public function deleteRepository($arg, $repo, $argList)
+    {
+        if(empty($repo) || !is_string($repo)){
+            die("The repository name must be a non-empty string");
+        }
+
+        $endpoint = Config::getEndpoint('metadata');
+
+        $repo = Request::get("$endpoint/repository/$repo");
+
+        $response = Request::delete("$endpoint/repository/${repo['id']}");
+
+        print("Repository '{$repo['name']}' was deleted successfully\n");
+    }
 }
 
 class Config{
@@ -414,6 +475,7 @@ class Config{
     const defaults = [
         'endpoints' => [
             'auth' => 'http://auth.reporangler.develop',
+            'metadata' => 'http://metadata.reporangler.develop',
             'php' => 'http://php.reporangler.develop',
             'npm' => 'http://npm.reporangler.develop',
         ]
@@ -599,17 +661,22 @@ class Command
 		return [trim($arg,'-'), $value];
     }
 
-    static public function hasHelp($argList)
+    static public function getArg($argList, $name)
     {
-        if(!is_array($argList)) return false;
+        if(!is_array($argList)) return null;
 
         foreach($argList as $arg){
             list($arg, $value) = self::extractArg($arg);
 
-            if($arg === 'help') return true;
+            if($arg === $name) return $value;
         }
 
-        return false;
+        return null;
+    }
+
+    static public function hasHelp($argList)
+    {
+        return self::getArg($argList, 'help') !== null;
     }
 }
 
