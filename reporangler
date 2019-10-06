@@ -358,7 +358,7 @@ class RepoRangler{
             print("Example: publish --(repository|repo)=php --group=public --url=https://github.com/reporangler/lib-reporangler\n");
             print("  --(repository|repo)=php: The name of the repository that this package will be published into\n");
             print("  --group=public: The name of the package group that this package will be associated with\n");
-            print("  --url=...: The url of the project from where to obtain packages from\n");
+            print("  --url=https://...: The url of the project from where to obtain packages from\n");
             print("\nNOTE: It's true that not all packages come from a VCS, but at the moment, it's the only supported type\n");
             die();
         }
