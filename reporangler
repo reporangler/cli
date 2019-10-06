@@ -68,9 +68,8 @@ class RepoRangler{
     static public function listUser($arg, $value, $argList)
     {
 		$endpoint = Config::getEndpoint('auth');
-        $headers = Request::getTokenHeaders();
 
-        $response = Request::get("$endpoint/user", $headers);
+        $response = Request::get("$endpoint/user");
 
         print("User List: \n");
         foreach($response['data'] as $user){
@@ -85,13 +84,12 @@ class RepoRangler{
         $password = readline('Enter Password: ');
 
 		$endpoint = Config::getEndpoint('auth');
-        $headers = Request::getTokenHeaders();
 
         $response = Request::post("$endpoint/user", [
             'username' => $username,
             'email' => $email,
             'password' => $password,
-        ], $headers);
+        ]);
 
         print("The User was created successfully\n");
     }
@@ -103,11 +101,10 @@ class RepoRangler{
         }
 
 		$endpoint = Config::getEndpoint('auth');
-        $headers = Request::getTokenHeaders();
 
-        $response = Request::get("$endpoint/user/username/$username", $headers);
+        $response = Request::get("$endpoint/user/username/$username");
 
-        Request::delete("$endpoint/user/{$response['id']}", $headers);
+        Request::delete("$endpoint/user/{$response['id']}");
 
         print("The user was deleted successfully\n");
     }
@@ -115,18 +112,17 @@ class RepoRangler{
     static public function userInfo($arg, $username, $argList)
     {
 		$endpoint = Config::getEndpoint('auth');
-		$headers = Request::getTokenHeaders();
 
 		if(!empty($username) && is_string($username)){
 		    try{
-				$response = Request::get("$endpoint/user/username/$username", $headers);
+				$response = Request::get("$endpoint/user/username/$username");
             }catch(RepoRanglerException $e){
 				die("The user with the username '$username' was not found\n");
             }
         }else{
 		    $userId = Config::getUserId();
 
-		    $response = Request::get("$endpoint/user/id/$userId", $headers);
+		    $response = Request::get("$endpoint/user/id/$userId");
         }
 
 		$is = [
@@ -160,9 +156,8 @@ class RepoRangler{
     static public function listPackageGroup($arg, $value, $argList)
     {
 		$endpoint = Config::getEndpoint('auth');
-        $headers = Request::getTokenHeaders();
 
-        $response = Request::get("$endpoint/package-group", $headers);
+        $response = Request::get("$endpoint/package-group");
 
         print("Package Groups: \n");
         foreach($response['data'] as $packageGroup){
@@ -177,11 +172,8 @@ class RepoRangler{
         }
 
 		$endpoint = Config::getEndpoint('auth');
-        $headers = Request::getTokenHeaders();
 
-        $response = Request::post("$endpoint/package-group", [
-            'name' => $packageGroup
-        ], $headers);
+        $response = Request::post("$endpoint/package-group", ['name' => $packageGroup]);
 
         print("The Package group was created successfully\n");
     }
@@ -193,11 +185,10 @@ class RepoRangler{
         }
 
 		$endpoint = Config::getEndpoint('auth');
-        $headers = Request::getTokenHeaders();
 
-        $response = Request::get("$endpoint/package-group/name/$packageGroup", $headers);
+        $response = Request::get("$endpoint/package-group/name/$packageGroup");
 
-        Request::delete("$endpoint/package-group/{$response['id']}", $headers);
+        Request::delete("$endpoint/package-group/{$response['id']}");
 
         print("The Package group was deleted successfully\n");
     }
@@ -233,13 +224,12 @@ class RepoRangler{
 		}
 
 		$endpoint = Config::getEndpoint('auth');
-		$headers = Request::getTokenHeaders();
 
 		$response = Request::post("$endpoint/access-token/{$fields['user_id']}", [
             'user_id' => $fields['user_id'],
             'type' => $fields['type'],
             'token' => $fields['token'],
-		], $headers);
+		]);
 
 		if(empty($response)){
 		    die("An unexpected empty response was returned\n");
@@ -279,9 +269,8 @@ class RepoRangler{
 		}
 
 		$endpoint = Config::getEndpoint('auth');
-		$headers = Request::getTokenHeaders();
 
-		$response = Request::get("$endpoint/access-token/{$fields['user_id']}", $headers);
+		$response = Request::get("$endpoint/access-token/{$fields['user_id']}");
 
 		if(empty($response)){
 			print("There were no tokens by this user to delete\n");
@@ -321,9 +310,8 @@ class RepoRangler{
 		}
 
 		$endpoint = Config::getEndpoint('auth');
-		$headers = Request::getTokenHeaders();
 
-		$response = Request::get("$endpoint/access-token/{$fields['user_id']}", $headers);
+		$response = Request::get("$endpoint/access-token/{$fields['user_id']}");
 
 		if(empty($response)){
 		    print("There were no tokens by this user to delete\n");
@@ -338,7 +326,7 @@ class RepoRangler{
 		$id = intval($id);
 		if($id < 1) die("The Id given was not a positive integer");
 
-		$response = Request::delete("$endpoint/access-token/{$fields['user_id']}/{$response[$id-1]['id']}", $headers);
+		$response = Request::delete("$endpoint/access-token/{$fields['user_id']}/{$response[$id-1]['id']}");
 
 		if(array_key_exists('deleted', $response) && count($response['deleted']) === 1){
 		    $deleted = current($response['deleted']);
@@ -403,13 +391,12 @@ class RepoRangler{
         }
 
 		$endpoint = Config::getEndpoint($fields['repository']);
-		$headers = Request::getTokenHeaders();
 
 		$response = Request::post($endpoint, [
             'url' => $fields['url'],
             'type' => $fields['scanner'],
             'package_group' => $fields['package_group'],
-        ], $headers);
+        ]);
 
 		foreach($response as $package => $version){
 			print("Published Package: '$package' from '{$fields['url']}'\n");
@@ -490,6 +477,10 @@ class Request{
     private function exec($method, $url, $data, $headers)
     {
         $curl = curl_init();
+
+        if(empty($headers)){
+            $headers = Request::getTokenHeaders();
+        }
 
         $headers[] = 'Content-Type: application/json';
 
