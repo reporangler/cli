@@ -354,16 +354,19 @@ class RepoRangler{
 
     static public function publish($arg, $value, $argList)
     {
+        $scannerTypes = ['github', 'gitlab', 'vcs'];
+
         if(Command::hasHelp($argList)){
             print("Example: publish --(repository|repo)=php --group=public --url=https://github.com/reporangler/lib-reporangler\n");
             print("  --(repository|repo)=php: The name of the repository that this package will be published into\n");
             print("  --group=public: The name of the package group that this package will be associated with\n");
             print("  --url=https://...: The url of the project from where to obtain packages from\n");
+            print("  --scanner=(".implode("|",$scannerTypes)."): The type of repository scanner to use, must be one of the listed types")
             print("\nNOTE: It's true that not all packages come from a VCS, but at the moment, it's the only supported type\n");
             die();
         }
 
-        $fields = array_fill_keys(['repository','scan','package_group','url'], null);
+        $fields = array_fill_keys(['repository','scanner','package_group','url'], null);
 
         foreach($argList as $arg){
 			list($arg, $value) = Command::extractArg($arg);
@@ -382,26 +385,20 @@ class RepoRangler{
                     $fields['url'] = $value;
                     break;
 
-                case 'scan':
-                    $fields['scan'] = $value;
+                case 'scanner':
+                    $fields['scanner'] = $value;
                     break;
             }
         }
 
-        if($fields['scan'] === null){
-			switch(true){
-				case strpos($fields['url'], 'github') !== false:
-					$fields['scan'] = 'github';
-					break;
+        if($fields['scanner'] === null){
+            $fields['scanner'] = 'vcs';
 
-				case strpos($fields['url'], 'gitlab') !== false:
-					$fields['scan'] = 'gitlab';
-					break;
-
-                default:
-					$fields['scan'] = 'vcs';
-                    break;
-			}
+            foreach($scannerType as $type){
+                if(strpos($fields['url'], $type) !== false){
+                    $fields['scanner'] = $type;
+                }
+            }
         }
 
         if(in_array(null, $fields)){
@@ -413,7 +410,7 @@ class RepoRangler{
 
 		$response = Request::post($endpoint, [
             'url' => $fields['url'],
-            'type' => $fields['scan'],
+            'type' => $fields['scanner'],
             'package_group' => $fields['package_group'],
         ], $headers);
 
