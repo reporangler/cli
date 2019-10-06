@@ -60,7 +60,7 @@ corrected to `list-package-group`. The commands are singular unless explicitly s
     - The functionality is limited, but you can say the url of the VCS repository to publish from
     - You can override the scanning mechanism that maybe the repository service uses, but this information might not 
         be useful to the repository service, it's only provided as part of the payload and if it's useful then it's available
-    - Example: `publish --type=php --group=public --url=https://github.com/reporangler/lib-reporangler`
+    - Example: `publish --repo=php --group=public --url=https://github.com/reporangler/lib-reporangler`
     - NOTE: It is a nice coincidence that publishing an existing package, will also update any existing packages which match the same information
 
 #### Repository Commands
@@ -80,7 +80,19 @@ corrected to `list-package-group`. The commands are singular unless explicitly s
     - It requires to be equal to the name of the repository to delete
     - Example: delete-repository=npm
 
-#### Missing Commands (but that exist in the Rest Api)
-- Assign user into package group
-- Remove user from package group
+#### Missing Commands (but that exist in the REST API)
 - Remove published package
+    - Obviously to unpublish something
+    - Not entirely sure what combination of fields I need for this yet
+- Assign user repository admin
+    - To delegate authority for administrating access to a repository to a team leader
+- Remove user repository admin
+    - To remove the authority
+- Assign user repository access
+    - To allow a user to access package groups with this repository
+- Remove user repository access
+    - To remove the access to package groups with this repository
+- Assign user into repository/package group
+    - To grant access to a package group, with a specific repository
+- Remove user from repository/package group
+    - To remove the access to a package group, within a specific repository
