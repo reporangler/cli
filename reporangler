@@ -19,16 +19,12 @@ function main($argv, $argc){
     }
 
     if($unknownCommand){
-        if(Command::hasHelp($argv)){
-            print("All Supported Commands:\n");
-            $commands = get_class_methods(RepoRangler::class);
-            foreach($commands as $cmd){
-                $parts = preg_split('/(?=[A-Z])/', $cmd, -1, PREG_SPLIT_NO_EMPTY);
-                $cmd = strtolower(implode('-', $parts));
-                print("  - $cmd\n");
-            }
-        }else{
-            print("No command was found to process\n");
+        print("All Supported Commands:\n");
+        $commands = get_class_methods(RepoRangler::class);
+        foreach($commands as $cmd){
+            $parts = preg_split('/(?=[A-Z])/', $cmd, -1, PREG_SPLIT_NO_EMPTY);
+            $cmd = strtolower(implode('-', $parts));
+            print("  - $cmd\n");
         }
     }
 }
