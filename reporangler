@@ -344,14 +344,24 @@ class RepoRangler{
 
     static public function publish($arg, $value, $argList)
     {
-        $fields = array_fill_keys(['repository_type','scan','package_group','url'], null);
+        if(Command::hasHelp($argList)){
+            print("Example: publish --(repository|repo)=php --group=public --url=https://github.com/reporangler/lib-reporangler\n");
+            print("  --(repository|repo)=php: The name of the repository that this package will be published into\n");
+            print("  --group=public: The name of the package group that this package will be associated with\n");
+            print("  --url=...: The url of the project from where to obtain packages from\n");
+            print("\nNOTE: It's true that not all packages come from a VCS, but at the moment, it's the only supported type\n");
+            die();
+        }
+
+        $fields = array_fill_keys(['repository','scan','package_group','url'], null);
 
         foreach($argList as $arg){
 			list($arg, $value) = Command::extractArg($arg);
 
 			switch($arg){
-                case 'type':
-					$fields['repository_type'] = $value;
+                case 'repository':
+                case 'repo':
+					$fields['repository'] = $value;
 					break;
 
                 case 'group':
@@ -388,7 +398,7 @@ class RepoRangler{
             throw new CommandFieldEmptyException();
         }
 
-		$endpoint = Config::getEndpoint($fields['repository_type']);
+		$endpoint = Config::getEndpoint($fields['repository']);
 		$headers = Request::getTokenHeaders();
 
 		$response = Request::post($endpoint, [
@@ -592,6 +602,19 @@ class Command
 		list($arg, $value) = explode("=",$arg) + [null, null];
 
 		return [trim($arg,'-'), $value];
+    }
+
+    static public function hasHelp($argList)
+    {
+        if(!is_array($argList)) return false;
+
+        foreach($argList as $arg){
+            list($arg, $value) = self::extractArg($arg);
+
+            if($arg === 'help') return true;
+        }
+
+        return false;
     }
 }
 
