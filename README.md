@@ -61,6 +61,7 @@ corrected to `list-package-group`. The commands are singular unless explicitly s
     - You can override the scanning mechanism that maybe the repository service uses, but this information might not 
         be useful to the repository service, it's only provided as part of the payload and if it's useful then it's available
     - Example: `publish --type=php --group=public --url=https://github.com/reporangler/lib-reporangler`
+    - NOTE: It is a nice coincidence that publishing an existing package, will also update any existing packages which match the same information
 
 #### Repository Commands
 - list-repository
@@ -82,5 +83,4 @@ corrected to `list-package-group`. The commands are singular unless explicitly s
 #### Missing Commands (but that exist in the Rest Api)
 - Assign user into package group
 - Remove user from package group
-- Update published package
 - Remove published package
