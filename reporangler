@@ -10,7 +10,7 @@ function main($argv, $argc){
 
     foreach($argList as $arg){
         list($arg, $value) = explode("=",$arg) + [null, null];
-        $method = Command::computeMethodName($arg);
+        $method = Command::commandToMethod($arg);
 
         if(!empty($method)){
             $unknownCommand = false;
@@ -20,11 +20,16 @@ function main($argv, $argc){
 
     if($unknownCommand){
         print("All Supported Commands:\n");
-        $commands = get_class_methods(RepoRangler::class);
-        foreach($commands as $cmd){
-            $parts = preg_split('/(?=[A-Z])/', $cmd, -1, PREG_SPLIT_NO_EMPTY);
-            $cmd = strtolower(implode('-', $parts));
-            print("  - $cmd\n");
+        $methodList = get_class_methods(RepoRangler::class);
+        foreach($methodList as $method){
+            $cmd = Command::methodToCommand($method);
+            $aliasList = [];
+            foreach(RepoRangler::$alias as $a => $m){
+                if($m === $method) $aliasList[] = Command::methodToCommand($a);
+            }
+            $aliasList = count($aliasList) ? '(alias: '.implode(', ', $aliasList).')' : '';
+
+            print("  - $cmd $aliasList\n");
         }
     }
 }
@@ -51,6 +56,10 @@ try{
 }
 
 class RepoRangler{
+    static public $alias = [
+        'listRepo' => 'listRepository',
+    ];
+
     static public function login($arg, $value, $argList)
     {
         $username = readline('Enter Username: ');
@@ -496,15 +505,15 @@ class Config{
     static public function getEndpoint($name)
     {
         if(empty(self::$state)) {
-            die("State: Was empty");
+            die("State: Was empty\n");
         }
 
         if(!array_key_exists('endpoints', self::$state)) {
-            die("State: Endpoints are not configured");
+            die("State: Endpoints are not configured\n");
         }
 
         if(!array_key_exists($name, self::$state['endpoints'])) {
-            die("State: Endpoint '$name' does not exist");
+            die("State: Endpoint '$name' does not exist\n");
         }
 
         return self::$state['endpoints'][$name];
@@ -628,7 +637,7 @@ class Request{
         $token = Config::getToken();
 
         if(empty($token)){
-            die("Token was empty, you must login first");
+            die("Token was empty, you must login first\n");
         }
 
         return ["Authorization: Bearer {$token}"];
@@ -637,7 +646,13 @@ class Request{
 
 class Command
 {
-	static public function computeMethodName($arg)
+    static public function methodToCommand($method)
+    {
+		$parts = preg_split('/(?=[A-Z])/', $method, -1, PREG_SPLIT_NO_EMPTY);
+		return strtolower(implode('-', $parts));
+    }
+
+	static public function commandToMethod($arg)
 	{
 		$command = trim($arg,'-');
 		$command = str_replace('-', ' ', $command);
@@ -645,13 +660,19 @@ class Command
 		$command = str_replace(' ', '', $command);
 		$command = lcfirst($command);
 
-		if(method_exists("RepoRangler", $command)) return "RepoRangler::$command";
+		if(method_exists("RepoRangler", $command)) {
+			return "RepoRangler::$command";
+		}
+
+		if(method_exists("RepoRangler", RepoRangler::$alias[$command])){
+		    return "RepoRangler::".RepoRangler::$alias[$command];
+        }
 
 		$altArg = rtrim($arg, 's');
 		if($altArg === $arg) return null;
 
 		print("Command '$arg' did not exist, trying '$altArg'\n");
-		return self::computeMethodName($altArg);
+		return self::commandToMethod($altArg);
 	}
 
 	static public function extractArg($arg)
