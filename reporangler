@@ -392,7 +392,7 @@ class RepoRangler{
         if($fields['scanner'] === null){
             $fields['scanner'] = 'vcs';
 
-            foreach($scannerType as $type){
+            foreach($scannerTypes as $type){
                 if(strpos($fields['url'], $type) !== false){
                     $fields['scanner'] = $type;
                 }
