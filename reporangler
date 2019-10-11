@@ -23,13 +23,7 @@ function main($argv, $argc){
         $methodList = get_class_methods(RepoRangler::class);
         foreach($methodList as $method){
             $cmd = Command::methodToCommand($method);
-            $aliasList = [];
-            foreach(RepoRangler::$alias as $a => $m){
-                if($m === $method) $aliasList[] = Command::methodToCommand($a);
-            }
-            $aliasList = count($aliasList) ? '(alias: '.implode(', ', $aliasList).')' : '';
-
-            print("  - $cmd $aliasList\n");
+            print("  - $cmd\n");
         }
     }
 }
@@ -56,33 +50,18 @@ try{
 }
 
 class RepoRangler{
-    static public $alias = [
-        'hc'    => 'healthCheck',
-        'lu'    => 'listUser',
-        'cu'    => 'createUser',
-        'du'    => 'deleteUser',
-        'ui'    => 'userInfo',
-        'lpg'   => 'listPackageGroup',
-        'cpg'   => 'createPackageGroup',
-        'dpg'   => 'deletePackageGroup',
-        'aat'   => 'addAccessToken',
-        'lat'   => 'listAccessToken',
-        'rat'   => 'removeAccessToken',
-        'pub'   => 'publish',
-		'lr'    => 'listRepository',
-        'cr'    => 'createRepository',
-        'ur'    => 'updateRepository',
-        'dr'    => 'deleteRepository',
-    ];
-
     static public function healthCheck($arg, $value, $argList)
     {
         $list = Config::getEndpoint();
 
         foreach($list as $service => $endpoint){
+            print("Checking '$service': ");
             $response = Request::get("$endpoint/healthz");
-
-            var_dump($response);
+            if(!empty($response) && array_key_exists('statusCode', $response)){
+                print(($response['statusCode'] === 200 ? "OK" : "FAIL") . "\n");
+            }else{
+				print("FAIL (Unknown reason)\n");
+            }
         }
     }
 
@@ -543,6 +522,7 @@ class Config{
             'metadata' => 'http://metadata.reporangler.develop',
             'php' => 'http://php.reporangler.develop',
             'npm' => 'http://npm.reporangler.develop',
+            'storage' => 'http://storage.reporangler.develop',
         ]
     ];
 
@@ -719,10 +699,6 @@ class Command
 		if(method_exists("RepoRangler", $command)) {
 			return "RepoRangler::$command";
 		}
-
-		if(method_exists("RepoRangler", RepoRangler::$alias[$command])){
-		    return "RepoRangler::".RepoRangler::$alias[$command];
-        }
 
 		$altArg = rtrim($arg, 's');
 		if($altArg === $arg) return null;
