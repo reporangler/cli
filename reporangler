@@ -19,13 +19,18 @@ function main($argv, $argc){
     }
 
     if($unknownCommand){
-        print("All Supported Commands:\n");
+        print("All Supported Commands, use 'reporangler <command> --help' to obtain details about how to use each command:\n");
         $methodList = get_class_methods(RepoRangler::class);
         foreach($methodList as $method){
             $cmd = Command::methodToCommand($method);
             print("  - $cmd\n");
         }
     }
+}
+
+function array_pluck($array, $keys)
+{
+	return array_intersect_key($array, array_flip($keys));
 }
 
 try{
@@ -393,9 +398,9 @@ class RepoRangler{
         $scannerTypes = ['github', 'gitlab', 'vcs'];
 
         if(Command::hasHelp($argList)){
-            print("Example: publish --(repository|repo)=php --group=public --url=https://github.com/reporangler/lib-reporangler\n");
+            print("Example: publish --(repository|repo)=php --package-group=public --url=https://github.com/reporangler/lib-reporangler\n");
             print("  --(repository|repo)=php: The name of the repository that this package will be published into\n");
-            print("  --group=public: The name of the package group that this package will be associated with\n");
+            print("  --package-group=public: The name of the package group that this package will be associated with\n");
             print("  --url=https://...: The url of the project from where to obtain packages from\n");
             print("  --scanner=(".implode("|",$scannerTypes)."): The type of repository scanner to use, must be one of the listed types\n\n");
             print("NOTE: It's true that not all packages come from a VCS, but at the moment, it's the only supported type\n");
@@ -403,29 +408,14 @@ class RepoRangler{
             die();
         }
 
-        $fields = array_fill_keys(['repository','scanner','package_group','url'], null);
+        $fields = array_fill_keys(['repository','scanner','package-group','url'], null);
 
         foreach($argList as $arg){
 			list($arg, $value) = Command::extractArg($arg);
 
-			switch($arg){
-                case 'repository':
-                case 'repo':
-					$fields['repository'] = $value;
-					break;
+			if($arg === 'repo') $arg = 'repository';
 
-                case 'group':
-					$fields['package_group'] = $value;
-                    break;
-
-                case 'url':
-                    $fields['url'] = $value;
-                    break;
-
-                case 'scanner':
-                    $fields['scanner'] = $value;
-                    break;
-            }
+			$fields[$arg] = $value;
         }
 
         if($fields['scanner'] === null){
@@ -447,7 +437,7 @@ class RepoRangler{
 		$response = Request::post($endpoint, [
             'url' => $fields['url'],
             'type' => $fields['scanner'],
-            'package_group' => $fields['package_group'],
+            'package_group' => $fields['package-group'],
         ]);
 
 		foreach($response as $package => $version){
@@ -514,6 +504,76 @@ class RepoRangler{
 
         print("Repository '{$repo['name']}' was deleted successfully\n");
     }
+
+    public function joinPackageGroup($arg, $repo, $argList)
+    {
+		$fields = array_fill_keys(['user', 'package-group', 'access', 'admin'], null);
+		$required = ['user', 'package-group'];
+
+		$fields = Command::pluckArgs($argList, $fields, $required);
+
+		$data = [];
+
+		$auth = Config::getEndpoint('auth');
+		$user = Request::get("$auth/user/{$fields['user']}");
+		$data['user_id'] = $user['id'];
+
+		$metadata = Config::getEndpoint('metadata');
+		$packageGroup = Request::get("$metadata/package-group/${fields['package-group']}");
+		$data['package_group_id'] = $packageGroup['id'];
+
+		if($fields['access']) $data['access'] = $fields['access'];
+		if($fields['admin']) $data['admin'] = $fields['admin'];
+
+		$response = Request::post("$auth/permission/user/package-group/join", $data);
+
+        var_dump($response);
+    }
+
+	public function leavePackageGroup($arg, $repo, $argList)
+	{
+		die(__METHOD__ . " NOT IMPLEMENTED YET");
+	}
+
+	public function requestJoinPackageGroup($arg, $repo, $argList)
+	{
+		die(__METHOD__ . " NOT IMPLEMENTED YET");
+	}
+
+	public function joinRepository($arg, $repo, $argList)
+	{
+		die(__METHOD__ . " NOT IMPLEMENTED YET");
+	}
+
+	public function leaveRepository($arg, $repo, $argList)
+	{
+		die(__METHOD__ . " NOT IMPLEMENTED YET");
+	}
+
+	public function requestRepository($arg, $repo, $argList)
+	{
+		die(__METHOD__ . " NOT IMPLEMENTED YET");
+	}
+
+	public function protectPackageGroup($arg, $repo, $argList)
+	{
+		die(__METHOD__ . " NOT IMPLEMENTED YET");
+	}
+
+	public function unprotectPackageGroup($arg, $repo, $argList)
+	{
+		die(__METHOD__ . " NOT IMPLEMENTED YET");
+	}
+
+	public function protectRepository($arg, $repo, $argList)
+	{
+		die(__METHOD__ . " NOT IMPLEMENTED YET");
+	}
+
+	public function unprotectRepository($arg, $repo, $argList)
+	{
+		die(__METHOD__ . " NOT IMPLEMENTED YET");
+	}
 }
 
 class Config{
@@ -718,6 +778,25 @@ class Command
 		return [trim($arg,'-'), $value];
     }
 
+    static public function pluckArgs($argList, $fields, $required)
+    {
+		foreach($argList as $arg){
+			list($arg, $value) = Command::extractArg($arg);
+
+			if(array_key_exists($arg, $fields)){
+			    if($value === null) $value = true;
+
+				$fields[$arg] = $value;
+			}
+		}
+
+		if(in_array(null, array_pluck($fields, $required))){
+			throw new CommandFieldEmptyException();
+		}
+
+		return $fields;
+    }
+
     static public function getArg($argList, $name)
     {
         if(!is_array($argList)) return null;
@@ -760,4 +839,8 @@ class RepoRanglerValidationException extends RepoRanglerException{
     }
 }
 
-class CommandFieldEmptyException extends \Exception{}
+class CommandFieldEmptyException extends \Exception{
+    public function __construct($message="There are missing command parameters that were required", $code=0){
+        parent::__construct($message, $code);
+    }
+}
