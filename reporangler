@@ -111,8 +111,12 @@ class RepoRangler{
         $response = Request::get("$endpoint/user");
 
         print("User List: \n");
-        foreach($response['data'] as $user){
-            print("  - {$user['username']}\n");
+        if(!empty($response['data'])){
+			foreach($response['data'] as $user){
+				print("  - {$user['username']}\n");
+			}
+        }else{
+            print("** EMPTY **\n");
         }
     }
 
@@ -176,20 +180,34 @@ class RepoRangler{
 		print("  Created At: {$response['created_at']}\n");
 		print("  Updated At: {$response['updated_at']}\n");
 		print("  Package Groups: \n");
-		foreach($response['package_groups'] as $name => $access){
-		    $access = $access === "PACKAGE_GROUP_ADMIN" ? 'admin' : 'member';
-		    print("    $name: $access\n");
+		if(!empty($response['package_groups'])){
+			foreach($response['package_groups'] as $name => $access){
+				$access = $access === "PACKAGE_GROUP_ADMIN" ? 'admin' : 'member';
+				print("    $name: $access\n");
+			}    
+        }else{
+		    print("    ** EMPTY **\n");
         }
+		
 		print("  Access Tokens: (TODO: hide if not your own tokens)\n");
-		foreach($response['access_tokens'] as $token){
-            print("    {$token['type']}: {$token['token']}\n");
-        }
-		print("  Raw Capability List: (TODO: We should remove this eventually)\n");
-		foreach($response['capability'] as $cap){
-			$constraint = $cap['constraint'] !== null ? json_encode($cap['constraint']) : "No Constraints given";
+		if(!empty($response['access_tokens'])){
+            foreach($response['access_tokens'] as $token){
+                print("    {$token['type']}: {$token['token']}\n");
+            }
+		}else{
+			print("    ** EMPTY **\n");
+		}
 
-		    print("    {$cap['name']}: $constraint\n");
-        }
+		print("  Raw Capability List: (TODO: We should remove this eventually)\n");
+		if(!empty($response['capability'])){
+            foreach($response['capability'] as $cap){
+                $constraint = $cap['constraint'] !== null ? json_encode($cap['constraint']) : "No Constraints given";
+
+                print("    {$cap['name']}: $constraint\n");
+            }
+		}else{
+			print("    ** EMPTY **\n");
+		}
     }
 
     static public function listPackageGroup($arg, $value, $argList)
@@ -199,8 +217,12 @@ class RepoRangler{
         $response = Request::get("$endpoint/package-group");
 
         print("Package Groups: \n");
-        foreach($response['data'] as $packageGroup){
-            print("  - {$packageGroup['name']}\n");
+		if(!empty($response['data'])) {
+			foreach ($response['data'] as $packageGroup) {
+				print("  - {$packageGroup['name']}\n");
+			}
+		}else{
+		    print("  **EMPTY**\n");
         }
     }
 
@@ -311,15 +333,19 @@ class RepoRangler{
 
 		$response = Request::get("$endpoint/access-token/{$fields['user_id']}");
 
-		if(empty($response)){
+		if(empty($response['data'])){
 			print("There were no tokens by this user to delete\n");
 			return;
 		}
 
 		print("The following tokens were found:\n");
-		foreach($response as $index => $token){
-			print("  ".($index+1).": {$token['type']}\n");
-		}
+		if(!empty($response['data'])){
+			foreach($response['data'] as $index => $token){
+				print("  ".($index+1).": {$token['type']}\n");
+			}
+        }else{
+		    print("  **EMPTY**\n");
+        }
 	}
 
     static public function removeAccessToken($arg, $value, $argList)
@@ -352,26 +378,30 @@ class RepoRangler{
 
 		$response = Request::get("$endpoint/access-token/{$fields['user_id']}");
 
-		if(empty($response)){
+		if(empty($response['data'])){
 		    print("There were no tokens by this user to delete\n");
 		    return;
         }
 
 		print("Please choose a token to delete:\n");
-		foreach($response as $index => $token){
-		    print("  ".($index+1).": {$token['type']}\n");
-        }
-		$id = readline("Enter id: ");
-		$id = intval($id);
-		if($id < 1) die("The Id given was not a positive integer");
+		if(!empty($response['data'])){
+			foreach($response['data'] as $index => $token){
+				print("  ".($index+1).": {$token['type']}\n");
+			}
+			$id = readline("Enter id: ");
+			$id = intval($id);
+			if($id < 1) die("The Id given was not a positive integer");
 
-		$response = Request::delete("$endpoint/access-token/{$fields['user_id']}/{$response[$id-1]['id']}");
+			$response = Request::delete("$endpoint/access-token/{$fields['user_id']}/{$response[$id-1]['id']}");
 
-		if(array_key_exists('deleted', $response) && count($response['deleted']) === 1){
-		    $deleted = current($response['deleted']);
-		    print("Token '{$deleted['type']}' with key '{$deleted['token']}' was successfully deleted\n");
+			if(array_key_exists('deleted', $response) && count($response['deleted']) === 1){
+				$deleted = current($response['deleted']);
+				print("Token '{$deleted['type']}' with key '{$deleted['token']}' was successfully deleted\n");
+			}else{
+				print("Something went wrong, but the expected response was not found\n");
+			}
         }else{
-		    print("Something went wrong, but the expected response was not found\n");
+		    print("  **EMPTY**\n");
         }
 	}
 
