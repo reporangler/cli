@@ -57,8 +57,22 @@ try{
 
 class RepoRangler{
     static public $alias = [
-        'listRepo' => 'listRepository',
+        'lr' => 'listRepository',
+        'lpg' => 'listPackageGroup',
+        'cpg' => 'createPackageGroup',
+        'dpg' => 'deletePackageGroup',
     ];
+
+    static public function healthcheck($arg, $value, $argList)
+    {
+        $list = Config::getEndpoint();
+
+        foreach($list as $service => $endpoint){
+            $response = Request::get("$endpoint/healthz");
+
+            var_dump($response);
+        }
+    }
 
     static public function login($arg, $value, $argList)
     {
@@ -168,7 +182,7 @@ class RepoRangler{
 
     static public function listPackageGroup($arg, $value, $argList)
     {
-		$endpoint = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('metadata');
 
         $response = Request::get("$endpoint/package-group");
 
@@ -184,11 +198,11 @@ class RepoRangler{
             die("The package group name must be a non-empty string");
         }
 
-		$endpoint = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('metadata');
 
         $response = Request::post("$endpoint/package-group", ['name' => $packageGroup]);
 
-        print("The Package group was created successfully\n");
+        print("The Package group '$packageGroup' was created successfully\n");
     }
 
     static public function deletePackageGroup($arg, $packageGroup, $argList)
@@ -197,13 +211,13 @@ class RepoRangler{
             die("The package group name must be a non-empty string");
         }
 
-		$endpoint = Config::getEndpoint('auth');
+		$endpoint = Config::getEndpoint('metadata');
 
         $response = Request::get("$endpoint/package-group/name/$packageGroup");
 
         Request::delete("$endpoint/package-group/{$response['id']}");
 
-        print("The Package group was deleted successfully\n");
+        print("The Package group '$packageGroup' was deleted successfully\n");
     }
 
     static public function addAccessToken($arg, $value, $argList)
@@ -502,7 +516,7 @@ class Config{
         return file_put_contents(self::file, json_encode(self::$state, JSON_PRETTY_PRINT));
     }
 
-    static public function getEndpoint($name)
+    static public function getEndpoint($name = null)
     {
         if(empty(self::$state)) {
             die("State: Was empty\n");
@@ -512,11 +526,11 @@ class Config{
             die("State: Endpoints are not configured\n");
         }
 
-        if(!array_key_exists($name, self::$state['endpoints'])) {
+        if($name && !array_key_exists($name, self::$state['endpoints'])) {
             die("State: Endpoint '$name' does not exist\n");
         }
 
-        return self::$state['endpoints'][$name];
+        return $name ? self::$state['endpoints'][$name] : self::$state['endpoints'];
     }
 
     static public function setToken($token)
