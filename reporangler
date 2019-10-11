@@ -55,12 +55,16 @@ class RepoRangler{
         $list = Config::getEndpoint();
 
         foreach($list as $service => $endpoint){
-            print("Checking '$service': ");
-            $response = Request::get("$endpoint/healthz");
-            if(!empty($response) && array_key_exists('statusCode', $response)){
-                print(($response['statusCode'] === 200 ? "OK" : "FAIL") . "\n");
-            }else{
-				print("FAIL (Unknown reason)\n");
+            try{
+				print("Checking '$service': ");
+				$response = Request::get("$endpoint/healthz");
+				if(!empty($response) && array_key_exists('statusCode', $response)){
+					print(($response['statusCode'] === 200 ? "OK" : "FAIL") . "\n");
+				}else{
+					print("FAIL - Unknown reason\n");
+				}
+            }catch(Exception $e){
+				print("FAIL - Exception Thrown, message = '".$e->getMessage()."'\n");
             }
         }
     }
