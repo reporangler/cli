@@ -57,13 +57,25 @@ try{
 
 class RepoRangler{
     static public $alias = [
-        'lr' => 'listRepository',
-        'lpg' => 'listPackageGroup',
-        'cpg' => 'createPackageGroup',
-        'dpg' => 'deletePackageGroup',
+        'hc'    => 'healthCheck',
+        'lu'    => 'listUser',
+        'cu'    => 'createUser',
+        'du'    => 'deleteUser',
+        'ui'    => 'userInfo',
+        'lpg'   => 'listPackageGroup',
+        'cpg'   => 'createPackageGroup',
+        'dpg'   => 'deletePackageGroup',
+        'aat'   => 'addAccessToken',
+        'lat'   => 'listAccessToken',
+        'rat'   => 'removeAccessToken',
+        'pub'   => 'publish',
+		'lr'    => 'listRepository',
+        'cr'    => 'createRepository',
+        'ur'    => 'updateRepository',
+        'dr'    => 'deleteRepository',
     ];
 
-    static public function healthcheck($arg, $value, $argList)
+    static public function healthCheck($arg, $value, $argList)
     {
         $list = Config::getEndpoint();
 
@@ -142,14 +154,14 @@ class RepoRangler{
 
 		if(!empty($username) && is_string($username)){
 		    try{
-				$response = Request::get("$endpoint/user/username/$username");
+				$response = Request::get("$endpoint/user/$username");
             }catch(RepoRanglerException $e){
 				die("The user with the username '$username' was not found\n");
             }
         }else{
 		    $userId = Config::getUserId();
 
-		    $response = Request::get("$endpoint/user/id/$userId");
+		    $response = Request::get("$endpoint/user/$userId");
         }
 
 		$is = [
