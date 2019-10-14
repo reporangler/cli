@@ -476,47 +476,47 @@ class RepoRangler{
 
 	public function leavePackageGroup()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET");
+		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
 	}
 
 	public function requestJoinPackageGroup()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET");
+		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
 	}
 
 	public function joinRepository()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET");
+		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
 	}
 
 	public function leaveRepository()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET");
+		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
 	}
 
 	public function requestRepository()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET");
+		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
 	}
 
 	public function protectPackageGroup()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET");
+		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
 	}
 
 	public function unprotectPackageGroup()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET");
+		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
 	}
 
 	public function protectRepository()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET");
+		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
 	}
 
 	public function unprotectRepository()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET");
+		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
 	}
 }
 
