@@ -211,7 +211,7 @@ class RepoRangler{
 
     static public function createPackageGroup()
     {
-        $packageGroup = Command::askArg('package-group', 'Enter the name of a package group to create');
+        $packageGroup = Command::askArg('name', 'Enter the name of a package group to create');
 
 		$endpoint = Config::getEndpoint('metadata');
 
@@ -222,7 +222,7 @@ class RepoRangler{
 
     static public function deletePackageGroup()
     {
-        $packageGroup = Command::askArg('package-group', 'Enter the name of a package group to delete');
+        $packageGroup = Command::askArg('name', 'Enter the name of a package group to delete');
 
 		$endpoint = Config::getEndpoint('metadata');
 
