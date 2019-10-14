@@ -164,9 +164,9 @@ class RepoRangler{
 		print("The user '{$response['username']}' was found:\n");
 		print("  Username: {$response['username']}\n");
 		print("  Email: {$response['email']}\n");
-		print("  Type: ADMIN[{$is['admin']}], REST[{$is['rest']}]\n");
-		print("  Created At: {$response['created_at']}\n");
-		print("  Updated At: {$response['updated_at']}\n");
+		print("  Type: \n");
+		print("    Admin: {$is['admin']}\n");
+		print("    Rest Access: {$is['rest']}\n");
 		print("  Package Groups: \n");
 		if(!empty($response['package_groups'])){
 			foreach($response['package_groups'] as $name => $access){
@@ -196,6 +196,8 @@ class RepoRangler{
 		}else{
 			print("    ** EMPTY **\n");
 		}
+		print("  Created At: {$response['created_at']}\n");
+		print("  Updated At: {$response['updated_at']}\n");
     }
 
     static public function listPackageGroup($arg, $value, $argList)
