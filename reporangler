@@ -1,30 +1,16 @@
 #!/usr/bin/env php
 <?php
 
-function main($argv, $argc){
+function main($command){
     print("RepoRangler: CLI\n");
 
-    $argList = array_slice($argv,1);
-
-    $unknownCommand = true;
-
-    foreach($argList as $arg){
-        list($arg, $value) = explode("=",$arg) + [null, null];
-        $method = Command::commandToMethod($arg);
-
-        if(!empty($method)){
-            $unknownCommand = false;
-            call_user_func_array($method, [$arg, $value, $argList]);
-        }
-    }
-
-    if($unknownCommand){
-        print("All Supported Commands, use 'reporangler <command> --help' to obtain details about how to use each command:\n");
-        $methodList = get_class_methods(RepoRangler::class);
-        foreach($methodList as $method){
-            $cmd = Command::methodToCommand($method);
-            print("  - $cmd\n");
-        }
+    if($method = Command::commandToMethod($command)){
+        call_user_func($method);
+    }else{
+		print("All Supported Commands, use 'reporangler {command} --help' to obtain details about how to use each command:\n");
+		foreach(get_class_methods(RepoRangler::class) as $method){
+			print("  - ".Command::methodToCommand($method)."\n");
+		}
     }
 }
 
@@ -35,8 +21,9 @@ function array_pluck($array, $keys)
 
 try{
     Config::read();
+	Command::setArgList(array_slice($argv,2));
 
-    main($argv,$argc);
+    main($argv[1]);
 }catch(RepoRanglerCurlException $e){
     print("Curl has failed: ".$e->getMessage()."\n");
 }catch(RepoRanglerValidationException $e){
@@ -55,7 +42,7 @@ try{
 }
 
 class RepoRangler{
-    static public function healthCheck($arg, $value, $argList)
+    static public function healthCheck()
     {
         $list = Config::getEndpoint();
 
@@ -74,10 +61,10 @@ class RepoRangler{
         }
     }
 
-    static public function login($arg, $value, $argList)
+    static public function login()
     {
-        $username = readline('Enter Username: ');
-        $password = readline('Enter Password: ');
+        $username = Command::askArg('username', 'Enter Username');
+        $password = Command::askArg('password', 'Enter Password');
 
 		$endpoint = Config::getEndpoint('auth');
         $headers = Request::getLoginHeaders($username, $password);
@@ -92,7 +79,7 @@ class RepoRangler{
         }
     }
 
-    static public function listUser($arg, $value, $argList)
+    static public function listUser()
     {
 		$endpoint = Config::getEndpoint('auth');
 
@@ -108,11 +95,11 @@ class RepoRangler{
         }
     }
 
-    static public function createUser($arg, $value, $argList)
+    static public function createUser()
     {
-        $username = readline('Enter Username: ');
-        $email = readline('Enter Email: ');
-        $password = readline('Enter Password: ');
+        $username = Command::askArg('username', 'Enter Username');
+        $email = Command::askArg('email', 'Enter Email');
+        $password = Command::askArg('password', 'Enter Password');
 
 		$endpoint = Config::getEndpoint('auth');
 
@@ -125,35 +112,41 @@ class RepoRangler{
         print("The User was created successfully\n");
     }
 
-    static public function deleteUser($arg, $username, $argList)
+    static public function deleteUser()
     {
-        if(empty($username) || !is_string($username)){
-            die("The username must be a non-empty string");
-        }
+        $username = Command::askArg('username', 'Enter a username to delete');
 
-		$endpoint = Config::getEndpoint('auth');
+        $user = self::getUserByUsername($username);
 
-        $response = Request::get("$endpoint/user/username/$username");
-
-        Request::delete("$endpoint/user/{$response['id']}");
+        $endpoint = Config::getEndpoint('auth');
+        Request::delete("$endpoint/user/{$user['id']}");
 
         print("The user was deleted successfully\n");
     }
 
-    static public function userInfo($arg, $username, $argList)
+    static public function getUserByUsername($username)
     {
-		$endpoint = Config::getEndpoint('auth');
+        if(empty($username)) throw new Exception("username was empty");
 
-		if(!empty($username) && is_string($username)){
-		    try{
-				$response = Request::get("$endpoint/user/$username");
+        $endpoint = Config::getEndpoint('auth');
+
+        return Request::get("$endpoint/user/$username");
+    }
+
+    static public function userInfo()
+    {
+        $username = Command::getArg('username');
+
+        if(!empty($username) && is_string($username)){
+			try{
+		        $response = self::getUserByUsername($username);
             }catch(RepoRanglerException $e){
-				die("The user with the username '$username' was not found\n");
+                die("The user with the username '$username' was not found\n");
             }
         }else{
-		    $userId = Config::getUserId();
-
-		    $response = Request::get("$endpoint/user/$userId");
+		    $user_id = Config::getUserId();
+			$endpoint = Config::getEndpoint('auth');
+		    $response = Request::get("$endpoint/user/$user_id");
         }
 
 		$is = [
@@ -200,7 +193,7 @@ class RepoRangler{
 		print("  Updated At: {$response['updated_at']}\n");
     }
 
-    static public function listPackageGroup($arg, $value, $argList)
+    static public function listPackageGroup()
     {
 		$endpoint = Config::getEndpoint('metadata');
 
@@ -216,24 +209,20 @@ class RepoRangler{
         }
     }
 
-    static public function createPackageGroup($arg, $packageGroup, $argList)
+    static public function createPackageGroup()
     {
-        if(empty($packageGroup) || !is_string($packageGroup)){
-            die("The package group name must be a non-empty string");
-        }
+        $packageGroup = Command::askArg('package-group', 'Enter the name of a package group to create');
 
 		$endpoint = Config::getEndpoint('metadata');
 
-        $response = Request::post("$endpoint/package-group", ['name' => $packageGroup]);
+        Request::post("$endpoint/package-group", ['name' => $packageGroup]);
 
         print("The Package group '$packageGroup' was created successfully\n");
     }
 
-    static public function deletePackageGroup($arg, $packageGroup, $argList)
+    static public function deletePackageGroup()
     {
-        if(empty($packageGroup) || !is_string($packageGroup)){
-            die("The package group name must be a non-empty string");
-        }
+        $packageGroup = Command::askArg('package-group', 'Enter the name of a package group to delete');
 
 		$endpoint = Config::getEndpoint('metadata');
 
@@ -244,84 +233,53 @@ class RepoRangler{
         print("The Package group '$packageGroup' was deleted successfully\n");
     }
 
-    static public function addAccessToken($arg, $value, $argList)
+    static public function addAccessToken()
     {
-        $fields = array_fill_keys(['user_id', 'type', 'token'], null);
+        $username = Command::getArg('username');
+		$user_id = Config::getUserId();
+        try{
+			$user = self::getUserByUsername($username);
+			$user_id = $user['id'];
+        }catch(Exception $e){ /* do nothing, just continue */ }
 
-		foreach($argList as $arg) {
-			list($arg, $value) = Command::extractArg($arg);
-
-			switch ($arg) {
-				case 'type':
-					$fields['type'] = $value;
-					break;
-
-                case 'token':
-                    $fields['token'] = $value;
-                    break;
-
-                case 'user':
-					// do nothing yet, but should lookup a user by username and acquire the user_id
-                    break;
-			}
-		}
-
-		if($fields['user_id'] === null){
-		    $fields['user_id'] = Config::getUserId();
-        }
-
-		if(in_array(null, $fields)){
-			throw new CommandFieldEmptyException();
-		}
+        $type = Command::askArg('type', 'Enter a name for this token (e.g: github, gitlab, maven)');
+        $token = Command::askArg('token', 'Enter the token to assign');
 
 		$endpoint = Config::getEndpoint('auth');
 
-		$response = Request::post("$endpoint/access-token/{$fields['user_id']}", [
-            'user_id' => $fields['user_id'],
-            'type' => $fields['type'],
-            'token' => $fields['token'],
+		$response = Request::post("$endpoint/access-token/$user_id", [
+            'user_id' => $user_id,
+            'type' => $type,
+            'token' => $token,
 		]);
 
 		if(empty($response)){
 		    die("An unexpected empty response was returned\n");
         }
 
-		if(!array_key_exists('type', $response) || $response['type'] !== $fields['type']){
+		if(!array_key_exists('type', $response) || $response['type'] !== $type){
 		    die("The type of this response was not found, or not the requested type\n");
         }
 
-		if(!array_key_exists('token', $response) || $response['token'] !== $fields['token']){
+		if(!array_key_exists('token', $response) || $response['token'] !== $token){
 		    die("The token of this response was not found, or not the requested text\n");
         }
 
 		print("Token '{$response['type']}' with key '{$response['token']}' was successfully created\n");
     }
 
-	static public function listAccessToken($arg, $value, $argList)
+	static public function listAccessToken()
 	{
-		$fields = array_fill_keys(['user_id'], null);
-
-		foreach ($argList as $arg) {
-			list($arg, $value) = Command::extractArg($arg);
-
-			switch ($arg) {
-				case 'user':
-					// do nothing yet, but should lookup a user by username and acquire the user_id
-					break;
-			}
-		}
-
-		if ($fields['user_id'] === null) {
-			$fields['user_id'] = Config::getUserId();
-		}
-
-		if (in_array(null, $fields)) {
-			throw new CommandFieldEmptyException();
-		}
+		$username = Command::getArg('username');
+		$user_id = Config::getUserId();
+		try{
+			$user = self::getUserByUsername($username);
+			$user_id = $user['id'];
+		}catch(Exception $e){ /* do nothing, just continue */ }
 
 		$endpoint = Config::getEndpoint('auth');
 
-		$response = Request::get("$endpoint/access-token/{$fields['user_id']}");
+		$response = Request::get("$endpoint/access-token/$user_id");
 
 		if(empty($response['data'])){
 			print("There were no tokens by this user to delete\n");
@@ -338,35 +296,18 @@ class RepoRangler{
         }
 	}
 
-    static public function removeAccessToken($arg, $value, $argList)
+    static public function removeAccessToken()
     {
-        $fields = array_fill_keys(['user_id', 'type'], null);
-
-		foreach($argList as $arg) {
-			list($arg, $value) = Command::extractArg($arg);
-
-			switch ($arg) {
-				case 'type':
-					$fields['type'] = $value;
-					break;
-
-				case 'user':
-					// do nothing yet, but should lookup a user by username and acquire the user_id
-					break;
-			}
-		}
-
-		if($fields['user_id'] === null){
-			$fields['user_id'] = Config::getUserId();
-		}
-
-        if(in_array(null, $fields)){
-			throw new CommandFieldEmptyException();
-		}
+		$username = Command::getArg('username');
+		$user_id = Config::getUserId();
+		try{
+			$user = self::getUserByUsername($username);
+			$user_id = $user['id'];
+		}catch(Exception $e){ /* do nothing, just continue */ }
 
 		$endpoint = Config::getEndpoint('auth');
 
-		$response = Request::get("$endpoint/access-token/{$fields['user_id']}");
+		$response = Request::get("$endpoint/access-token/$user_id");
 
 		if(empty($response['data'])){
 		    print("There were no tokens by this user to delete\n");
@@ -382,7 +323,7 @@ class RepoRangler{
 			$id = intval($id);
 			if($id < 1) die("The Id given was not a positive integer");
 
-			$response = Request::delete("$endpoint/access-token/{$fields['user_id']}/{$response[$id-1]['id']}");
+			$response = Request::delete("$endpoint/access-token/$user_id/{$response[$id-1]['id']}");
 
 			if(array_key_exists('deleted', $response) && count($response['deleted']) === 1){
 				$deleted = current($response['deleted']);
@@ -395,11 +336,11 @@ class RepoRangler{
         }
 	}
 
-    static public function publish($arg, $value, $argList)
+    static public function publish()
     {
         $scannerTypes = ['github', 'gitlab', 'vcs'];
 
-        if(Command::hasHelp($argList)){
+        if(Command::hasHelp()){
             print("Example: publish --(repository|repo)=php --package-group=public --url=https://github.com/reporangler/lib-reporangler\n");
             print("  --(repository|repo)=php: The name of the repository that this package will be published into\n");
             print("  --package-group=public: The name of the package group that this package will be associated with\n");
@@ -410,47 +351,38 @@ class RepoRangler{
             die();
         }
 
-        $fields = array_fill_keys(['repository','scanner','package-group','url'], null);
+        $repository = Command::askArg(['repo', 'repository'], 'Enter the repository to publish to');
+        $packageGroup = Command::askArg('package-group', "Enter a package-group for repository '$repository' to publish to");
+        $url = Command::askArg('url', 'What is the url to scan for packages?');
+        $scanner = Command::getArg('scanner', false);
 
-        foreach($argList as $arg){
-			list($arg, $value) = Command::extractArg($arg);
-
-			if($arg === 'repo') $arg = 'repository';
-
-			$fields[$arg] = $value;
-        }
-
-        if($fields['scanner'] === null){
-            $fields['scanner'] = 'vcs';
+        if($scanner === null){
+            $scanner = 'vcs';
 
             foreach($scannerTypes as $type){
-                if(strpos($fields['url'], $type) !== false){
-                    $fields['scanner'] = $type;
+                if(strpos($url, $type) !== false){
+                    $scanner = $type;
                 }
             }
         }
 
-        if(in_array(null, $fields)){
-            throw new CommandFieldEmptyException();
-        }
-
-		$endpoint = Config::getEndpoint($fields['repository']);
+		$endpoint = Config::getEndpoint($repository);
 
 		$response = Request::post($endpoint, [
-            'url' => $fields['url'],
-            'type' => $fields['scanner'],
-            'package_group' => $fields['package-group'],
+            'url' => $url,
+            'type' => $scanner,
+            'package_group' => $packageGroup,
         ]);
 
-		foreach($response as $package => $version){
-			print("Published Package: '$package' from '{$fields['url']}'\n");
-			foreach(array_keys($version) as $version){
+		foreach($response as $package => $data){
+			print("Published Package: '$package' from '{$url}'\n");
+			foreach(array_keys($data) as $version){
 			    print("  - $version\n");
             }
         }
 	}
 
-	public function listRepository($arg, $value, $argList)
+	public function listRepository()
     {
         $endpoint = Config::getEndpoint('metadata');
         $response = Request::get("$endpoint/repository");
@@ -461,11 +393,9 @@ class RepoRangler{
         }
     }
 
-    public function createRepository($arg, $repo, $argList)
+    public function createRepository()
     {
-        if(empty($repo) || !is_string($repo)){
-            die("The repository name must be a non-empty string");
-        }
+        $repo = Command::askArg('name', 'What is the name of the repository?');
 
         $endpoint = Config::getEndpoint('metadata');
 
@@ -474,54 +404,66 @@ class RepoRangler{
         print("Repository '{$response['name']}' was successfully created\n");
     }
 
-    public function updateRepository($arg, $repo, $argList)
+    public function updateRepository()
     {
-        if(empty($repo) || !is_string($repo)){
-            die("The repository name must be a non-empty string");
-        }
+        $from = Command::askArg('from', 'What repository would you like to rename?');
+        $to = Command::askArg('to', 'What is the new name you\'d like to give to this repository?');
 
         $endpoint = Config::getEndpoint('metadata');
 
-        $repo = Request::get("$endpoint/repository/$repo");
+        try{
+			$repo = Request::get("$endpoint/repository/$from");
 
-        $name = Command::getArg($argList, 'name');
-        if(empty($name)) $name = readline("Enter a new name for this repository: ");
+			$response = Request::put("$endpoint/repository/${repo['id']}",['name' => $to]);
+			print("Repository '{$repo['name']}' was renamed to '{$response['name']}' successfully\n");
+        }catch(\Exception $e){
+            switch($e->getCode()){
+                case 404:
+                    die("The repository named '$from' was not found\n");
+                    break;
+            }
 
-        $response = Request::put("$endpoint/repository/${repo['id']}",['name' => $name]);
-
-        print("Repository '{$repo['name']}' was renamed to '{$response['name']}' successfully\n");
+            throw $e;
+        }
     }
 
-    public function deleteRepository($arg, $repo, $argList)
+    public function deleteRepository()
     {
-        if(empty($repo) || !is_string($repo)){
-            die("The repository name must be a non-empty string");
-        }
+		$repo = Command::askArg('name', 'What is the name of the repository to delete?');
 
         $endpoint = Config::getEndpoint('metadata');
 
-        $repo = Request::get("$endpoint/repository/$repo");
+		try{
+            $response = Request::get("$endpoint/repository/$repo");
 
-        $response = Request::delete("$endpoint/repository/${repo['id']}");
+			Request::delete("$endpoint/repository/{$response['id']}");
+			print("Repository '{$response['name']}' was deleted successfully\n");
+        }catch(\Exception $e){
+			switch($e->getCode()){
+                case 404:
+                    die("The repository named '$repo' was not found\n");
+                    break;
+            }
 
-        print("Repository '{$repo['name']}' was deleted successfully\n");
+            throw $e;
+        }
     }
 
-    public function joinPackageGroup($arg, $repo, $argList)
+    public function joinPackageGroup()
     {
-		$fields = array_fill_keys(['user', 'package-group', 'access', 'admin'], null);
-		$required = ['user', 'package-group'];
+        $user = Command::askArg('user', 'Enter a username to join the group');
+        $packageGroup = Command::askArg('package-group', 'Enter the package group to join');
 
-		$fields = Command::pluckArgs($argList, $fields, $required);
+		$fields = Command::pluckArgs(['access' => null, 'admin' => null]);
 
 		$data = [];
 
 		$auth = Config::getEndpoint('auth');
-		$user = Request::get("$auth/user/{$fields['user']}");
+		$user = Request::get("$auth/user/$user");
 		$data['user_id'] = $user['id'];
 
 		$metadata = Config::getEndpoint('metadata');
-		$packageGroup = Request::get("$metadata/package-group/${fields['package-group']}");
+		$packageGroup = Request::get("$metadata/package-group/$packageGroup");
 		$data['package_group_id'] = $packageGroup['id'];
 
 		if($fields['access']) $data['access'] = $fields['access'];
@@ -532,47 +474,47 @@ class RepoRangler{
         var_dump($response);
     }
 
-	public function leavePackageGroup($arg, $repo, $argList)
+	public function leavePackageGroup()
 	{
 		die(__METHOD__ . " NOT IMPLEMENTED YET");
 	}
 
-	public function requestJoinPackageGroup($arg, $repo, $argList)
+	public function requestJoinPackageGroup()
 	{
 		die(__METHOD__ . " NOT IMPLEMENTED YET");
 	}
 
-	public function joinRepository($arg, $repo, $argList)
+	public function joinRepository()
 	{
 		die(__METHOD__ . " NOT IMPLEMENTED YET");
 	}
 
-	public function leaveRepository($arg, $repo, $argList)
+	public function leaveRepository()
 	{
 		die(__METHOD__ . " NOT IMPLEMENTED YET");
 	}
 
-	public function requestRepository($arg, $repo, $argList)
+	public function requestRepository()
 	{
 		die(__METHOD__ . " NOT IMPLEMENTED YET");
 	}
 
-	public function protectPackageGroup($arg, $repo, $argList)
+	public function protectPackageGroup()
 	{
 		die(__METHOD__ . " NOT IMPLEMENTED YET");
 	}
 
-	public function unprotectPackageGroup($arg, $repo, $argList)
+	public function unprotectPackageGroup()
 	{
 		die(__METHOD__ . " NOT IMPLEMENTED YET");
 	}
 
-	public function protectRepository($arg, $repo, $argList)
+	public function protectRepository()
 	{
 		die(__METHOD__ . " NOT IMPLEMENTED YET");
 	}
 
-	public function unprotectRepository($arg, $repo, $argList)
+	public function unprotectRepository()
 	{
 		die(__METHOD__ . " NOT IMPLEMENTED YET");
 	}
@@ -748,6 +690,13 @@ class Request{
 
 class Command
 {
+    static private $argList;
+
+    static public function setArgList($argList)
+    {
+        self::$argList = $argList;
+    }
+
     static public function methodToCommand($method)
     {
 		$parts = preg_split('/(?=[A-Z])/', $method, -1, PREG_SPLIT_NO_EMPTY);
@@ -780,9 +729,9 @@ class Command
 		return [trim($arg,'-'), $value];
     }
 
-    static public function pluckArgs($argList, $fields, $required)
+    static public function pluckArgs($fields, $required = [])
     {
-		foreach($argList as $arg){
+		foreach(self::$argList as $arg){
 			list($arg, $value) = Command::extractArg($arg);
 
 			if(array_key_exists($arg, $fields)){
@@ -799,22 +748,35 @@ class Command
 		return $fields;
     }
 
-    static public function getArg($argList, $name)
+    static public function getArg($name, $throw=false, $default=null)
     {
-        if(!is_array($argList)) return null;
+        if(!is_array($name)) $name = [$name];
 
-        foreach($argList as $arg){
+        foreach (self::$argList as $arg) {
             list($arg, $value) = self::extractArg($arg);
 
-            if($arg === $name) return $value;
+            if (in_array($arg, $name, true)) return $value;
         }
 
-        return null;
+        if($throw){
+            throw new CommandFieldEmptyException("A parameter from list '".implode(', ',$name)."' was not found\n");
+        }
+
+        return $default;
     }
 
-    static public function hasHelp($argList)
+    static public function askArg($name, $text)
     {
-        return self::getArg($argList, 'help') !== null;
+        $arg = self::getArg($name);
+
+        if(empty($arg)) $arg = readline(trim($text).": ");
+
+        return $arg;
+    }
+
+    static public function hasHelp()
+    {
+        return self::getArg(self::$argList, 'help') !== null;
     }
 }
 
@@ -824,10 +786,12 @@ class RepoRanglerException extends \Exception{
     public function __construct($message = null, $data = [])
     {
         $this->data = $data;
+        $code = is_array($data) && array_key_exists('code', $data) ? $data['code'] : 500;
 
-        parent::__construct($message);
+        parent::__construct($message, $code);
     }
 }
+
 class RepoRanglerCurlException extends RepoRanglerException{}
 class RepoRanglerAlreadyExistsException extends RepoRanglerException{}
 
