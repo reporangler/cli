@@ -452,19 +452,27 @@ class RepoRangler{
     public function joinPackageGroup()
     {
         $user = Command::askArg('user', 'Enter a username to join the group');
-        $packageGroup = Command::askArg('package-group', 'Enter the package group to join');
+        $name = Command::askArg('name', 'Enter the package group to join');
 
 		$fields = Command::pluckArgs(['access' => null, 'admin' => null]);
 
 		$data = [];
 
-		$auth = Config::getEndpoint('auth');
-		$user = Request::get("$auth/user/$user");
-		$data['user_id'] = $user['id'];
+		try{
+            $auth = Config::getEndpoint('auth');
+            $response = Request::get("$auth/user/$user");
+            $data['user_id'] = $response['id'];
+        }catch(Exception $e){
+            throw new RepoRanglerException("The user '$user' does not exist\n");
+        }
 
-		$metadata = Config::getEndpoint('metadata');
-		$packageGroup = Request::get("$metadata/package-group/$packageGroup");
-		$data['package_group_id'] = $packageGroup['id'];
+        try{
+            $metadata = Config::getEndpoint('metadata');
+            $response = Request::get("$metadata/package-group/$name");
+            $data['package_group_id'] = $response['id'];
+        }catch(Exception $e){
+		    throw new RepoRanglerException("The package group '$name' does not exist\n");
+        }
 
 		if($fields['access']) $data['access'] = $fields['access'];
 		if($fields['admin']) $data['admin'] = $fields['admin'];
