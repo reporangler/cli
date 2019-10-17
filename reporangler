@@ -458,7 +458,7 @@ class RepoRangler{
     {
         $user = Command::askArg('user', 'Enter a username to join the group');
         $group = Command::askArg(['group', 'package-group'], 'Enter the package group to join');
-        $repo = Command::askArg(['repo', 'repository'], 'Enter the repository to join');
+        $repo = Command::askArg(['repo', 'repository'], 'Enter the name of the repository to join');
 
 		$fields = Command::pluckArgs(['access' => null, 'admin' => null]);
 
@@ -502,7 +502,7 @@ class RepoRangler{
 	{
         $user = Command::askArg('user', 'Enter a username to join the group');
         $group = Command::askArg(['group', 'package-group'], 'Enter the package group to join');
-        $repo = Command::askArg(['repo', 'repository'], 'Enter the repository to join');
+        $repo = Command::askArg(['repo', 'repository'], 'Enter the name of the repository to join');
 
         $fields = Command::pluckArgs(['access' => null, 'admin' => null]);
 
