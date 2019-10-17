@@ -452,14 +452,17 @@ class RepoRangler{
     public function joinPackageGroup()
     {
         $user = Command::askArg('user', 'Enter a username to join the group');
-        $name = Command::askArg('name', 'Enter the package group to join');
+        $group = Command::askArg(['group', 'package-group'], 'Enter the package group to join');
+        $repo = Command::askArg(['repo', 'repository'], 'Enter the repository to join');
 
 		$fields = Command::pluckArgs(['access' => null, 'admin' => null]);
 
 		$data = [];
 
+        $auth = Config::getEndpoint('auth');
+        $metadata = Config::getEndpoint('metadata');
+
 		try{
-            $auth = Config::getEndpoint('auth');
             $response = Request::get("$auth/user/$user");
             $data['user_id'] = $response['id'];
         }catch(Exception $e){
@@ -467,11 +470,17 @@ class RepoRangler{
         }
 
         try{
-            $metadata = Config::getEndpoint('metadata');
-            $response = Request::get("$metadata/package-group/$name");
+            $response = Request::get("$metadata/package-group/$group");
             $data['package_group_id'] = $response['id'];
         }catch(Exception $e){
-		    throw new RepoRanglerException("The package group '$name' does not exist\n");
+		    throw new RepoRanglerException("The package group '$group' does not exist\n");
+        }
+
+        try{
+            $response = Request::get("$metadata/repository/$repo");
+            $data['repository_id'] = $response['id'];
+        }catch(Exception $e){
+		    throw new RepoRanglerException("The repository '$repo' does not exist\n");
         }
 
 		if($fields['access']) $data['access'] = $fields['access'];
