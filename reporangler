@@ -63,19 +63,23 @@ class RepoRangler{
 
     static public function login()
     {
-        $username = Command::askArg('username', 'Enter Username');
+        $username = Command::askArg(['user','username'], 'Enter Username');
         $password = Command::askArg('password', 'Enter Password');
 
-		$endpoint = Config::getEndpoint('auth');
-        $headers = Request::getLoginHeaders($username, $password);
-        $response = Request::get("$endpoint/login/api", $headers);
+        try{
+            $endpoint = Config::getEndpoint('auth');
+            $headers = Request::getLoginHeaders($username, $password);
+            $response = Request::get("$endpoint/login/api", $headers);
 
-        if(array_key_exists('token', $response)){
-            Config::setToken($response['token']);
-            Config::setUserId($response['id']);
-            print("Login was successful, token: {$response['token']}\n");
-        }else{
-            print("Login has failed\n");
+            if(array_key_exists('token', $response)){
+                Config::setToken($response['token']);
+                Config::setUserId($response['id']);
+                print("Login was successful, token: {$response['token']}\n");
+            }else{
+                print("Login has failed\n");
+            }
+        }catch(Exception $e){
+            print("Login was not successful: ".$e->getMessage()."\n");
         }
     }
 
@@ -97,7 +101,7 @@ class RepoRangler{
 
     static public function createUser()
     {
-        $username = Command::askArg('username', 'Enter Username');
+        $username = Command::askArg(['user','username'], 'Enter Username');
         $email = Command::askArg('email', 'Enter Email');
         $password = Command::askArg('password', 'Enter Password');
 
@@ -114,7 +118,7 @@ class RepoRangler{
 
     static public function deleteUser()
     {
-        $username = Command::askArg('username', 'Enter a username to delete');
+        $username = Command::askArg(['user','username'], 'Enter a username to delete');
 
         $user = self::getUserByUsername($username);
 
@@ -135,7 +139,7 @@ class RepoRangler{
 
     static public function userInfo()
     {
-        $username = Command::getArg('username');
+        $username = Command::getArg(['user','username']);
 
         if(!empty($username) && is_string($username)){
 			try{
@@ -145,6 +149,7 @@ class RepoRangler{
             }
         }else{
 		    $user_id = Config::getUserId();
+		    var_dump($user_id);
 			$endpoint = Config::getEndpoint('auth');
 		    $response = Request::get("$endpoint/user/$user_id");
         }
@@ -643,6 +648,10 @@ class Request{
         switch(Request::$statusCode){
             case 200:
                 return $json;
+                break;
+
+            case 401:
+                throw new RepoRanglerException("Unauthorized", $json);
                 break;
 
             case 404:
