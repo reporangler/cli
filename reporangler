@@ -493,12 +493,48 @@ class RepoRangler{
 
 		$response = Request::post("$auth/permission/user/package-group/join", $data);
 
-        var_dump($response);
+		$access = array_key_exists('admin', $data) ? "admin" : "normal access";
+
+		print("Access to package group '$group' in repository '$repo' with $access level for user '$user' was granted\n");
     }
 
 	public function leavePackageGroup()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
+        $user = Command::askArg('user', 'Enter a username to join the group');
+        $group = Command::askArg(['group', 'package-group'], 'Enter the package group to join');
+        $repo = Command::askArg(['repo', 'repository'], 'Enter the repository to join');
+
+        $fields = Command::pluckArgs(['access' => null, 'admin' => null]);
+
+        $data = [];
+
+        $auth = Config::getEndpoint('auth');
+        $metadata = Config::getEndpoint('metadata');
+
+        try{
+            $response = Request::get("$auth/user/$user");
+            $data['user_id'] = $response['id'];
+        }catch(Exception $e){
+            throw new RepoRanglerException("The user '$user' does not exist\n");
+        }
+
+        try{
+            $response = Request::get("$metadata/package-group/$group");
+            $data['package_group_id'] = $response['id'];
+        }catch(Exception $e){
+            throw new RepoRanglerException("The package group '$group' does not exist\n");
+        }
+
+        try{
+            $response = Request::get("$metadata/repository/$repo");
+            $data['repository_id'] = $response['id'];
+        }catch(Exception $e){
+            throw new RepoRanglerException("The repository '$repo' does not exist\n");
+        }
+
+        $response = Request::post("$auth/permission/user/package-group/leave", $data);
+
+        print("Access to package group '$group' in repository '$repo' for user '$user' was removed\n");
 	}
 
 	public function requestJoinPackageGroup()
@@ -825,7 +861,7 @@ class RepoRanglerValidationException extends RepoRanglerException{
     public function __construct($data = [])
     {
         $keys = implode(', ', array_keys($data['validation']));
-        $message = "Validation has failed because the following fields were not valid: $keys";
+        $message = "Validation has failed because one of the following fields was not valid: $keys";
 
         parent::__construct($message, $data['validation']);
     }
