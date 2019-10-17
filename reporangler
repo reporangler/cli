@@ -393,7 +393,7 @@ class RepoRangler{
         $response = Request::get("$endpoint/repository");
 
         print("List of Supported Repositories: \n");
-        foreach($response as $repo){
+        foreach($response['data'] as $repo){
             print("  - ${repo['name']}\n");
         }
     }
