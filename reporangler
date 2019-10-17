@@ -544,12 +544,65 @@ class RepoRangler{
 
 	public function joinRepository()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
+        $user = Command::askArg('user', 'Enter a username to join the repository');
+        $repo = Command::askArg(['repo', 'repository'], 'Enter the name of the repository to join');
+
+        $fields = Command::pluckArgs(['access' => null, 'admin' => null]);
+
+        $auth = Config::getEndpoint('auth');
+        $metadata = Config::getEndpoint('metadata');
+
+        try{
+            $response = Request::get("$auth/user/$user");
+            $data['user_id'] = $response['id'];
+        }catch(Exception $e){
+            throw new RepoRanglerException("The user '$user' does not exist\n");
+        }
+
+        try{
+            $response = Request::get("$metadata/repository/$repo");
+            $data['repository_id'] = $response['id'];
+        }catch(Exception $e){
+            throw new RepoRanglerException("The repository '$repo' does not exist\n");
+        }
+
+        if($fields['access']) $data['access'] = $fields['access'];
+        if($fields['admin']) $data['admin'] = $fields['admin'];
+
+        $response = Request::post("$auth/permission/user/repository/join", $data);
+
+        $access = array_key_exists('admin', $data) ? "admin" : "normal access";
+
+        print("Access to repository '$repo' with $access level for user '$user' was granted\n");
 	}
 
 	public function leaveRepository()
 	{
-		die(__METHOD__ . " NOT IMPLEMENTED YET\n");
+        $user = Command::askArg('user', 'Enter a username to join the repository');
+        $repo = Command::askArg(['repo', 'repository'], 'Enter the name of the repository to join');
+
+        $fields = Command::pluckArgs(['access' => null, 'admin' => null]);
+
+        $auth = Config::getEndpoint('auth');
+        $metadata = Config::getEndpoint('metadata');
+
+        try{
+            $response = Request::get("$auth/user/$user");
+            $data['user_id'] = $response['id'];
+        }catch(Exception $e){
+            throw new RepoRanglerException("The user '$user' does not exist\n");
+        }
+
+        try{
+            $response = Request::get("$metadata/repository/$repo");
+            $data['repository_id'] = $response['id'];
+        }catch(Exception $e){
+            throw new RepoRanglerException("The repository '$repo' does not exist\n");
+        }
+
+        $response = Request::post("$auth/permission/user/repository/leave", $data);
+
+        print("Access to repository '$repo' for user '$user' was removed\n");
 	}
 
 	public function requestRepository()
