@@ -49,7 +49,7 @@ class RepoRangler{
         foreach($list as $service => $endpoint){
             try{
 				print("Checking '$service': ");
-				$response = Request::get("$endpoint/healthz");
+				$response = Request::get($endpoint);
 				if(!empty($response) && array_key_exists('statusCode', $response)){
 					print(($response['statusCode'] === 200 ? "OK" : "FAIL") . "\n");
 				}else{
@@ -711,7 +711,7 @@ class Request{
         $headers[] = 'Content-Type: application/json';
 
         // Coerce the method to a set of allowed types
-        $method = in_array($method, ['GET', 'POST', 'PUT', 'DELETE']) ? $method : 'GET';
+        $method = in_array($method, ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']) ? $method : 'GET';
 
         curl_setopt($curl, CURLOPT_URL, $url);
         curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
@@ -780,6 +780,11 @@ class Request{
     public function delete($url, $headers=[])
     {
         return self::exec('DELETE', $url, null, $headers);
+    }
+
+	public function options($url, $headers=[])
+    {
+        return self::exec('OPTIONS', $url, null, $headers);
     }
 
     public function getLoginHeaders($username, $password)
