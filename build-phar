@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+docker run \
+  -w /var/www/html/ \
+  -v $PWD:/var/www/html \
+  -v $PWD/phar.ini:/usr/local/etc/php/conf.d/phar.ini php:fpm \
+  ./compile-phar $@

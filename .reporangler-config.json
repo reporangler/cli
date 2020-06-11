@@ -1,0 +1,9 @@
+{
+    "endpoints": {
+        "auth": "http:\/\/auth.reporangler.develop",
+        "metadata": "http:\/\/metadata.reporangler.develop",
+        "php": "http:\/\/php.reporangler.develop",
+        "npm": "http:\/\/npm.reporangler.develop",
+        "storage": "http:\/\/storage.reporangler.develop"
+    }
+}

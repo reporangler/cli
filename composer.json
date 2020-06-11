@@ -1,13 +1,20 @@
 {
-    "name": "reporangler/reporangler-cli",
-    "description": "The RepoRangler Command Line Interface",
-    "keywords": ["reporangler", "php", "cli"],
-    "license": "MIT",
-    "type": "project",
-    "repositories": [
-        {
-            "type": "composer",
-            "url": "http://php.reporangler.develop"
-        }
-    ]
+  "name": "reporangler/reporangler-cli",
+  "description": "The RepoRangler Command Line Interface",
+  "keywords": [
+    "reporangler",
+    "php",
+    "cli"
+  ],
+  "license": "MIT",
+  "type": "project",
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "http://php.reporangler.develop"
+    }
+  ],
+  "require": {
+    "ext-curl": "*"
+  }
 }
